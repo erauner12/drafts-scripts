@@ -15,7 +15,8 @@ var getCursorPosition = () => {
   return getSelectionStartIndex();
 };
 var isLastLine = (text) => {
-  return !text.endsWith("\n");
+  return !text.endsWith(`
+`);
 };
 var isEndOfDraft = (positionIndex) => {
   return positionIndex === getDraftLength();
@@ -177,7 +178,8 @@ class CopyCutDelete {
     this.cursorPosition = getCursorPosition();
   }
   addNewlineIfEndOfDraft = () => {
-    return isLastLine(this.text) ? "\n" : "";
+    return isLastLine(this.text) ? `
+` : "";
   };
   copyLineUp = () => {
     setTextinRange(this.text + this.addNewlineIfEndOfDraft(), this.lineStartIndex, 0);
@@ -242,10 +244,13 @@ var selectSection = (sectionSeparator) => {
   setSelectionRange(trimmedSectionStart, trimmedSectionEnd - trimmedSectionStart);
 };
 var selectLine = () => {
-  selectSection("\n");
+  selectSection(`
+`);
 };
 var selectParagraph = () => {
-  selectSection("\n\n");
+  selectSection(`
+
+`);
 };
 var selectResponse = () => {
   selectSection("---");
@@ -283,7 +288,8 @@ var moveCursorRight = () => {
 };
 var jumpToPreviousHeader = () => {
   const cursorPosition = getCursorPosition();
-  const previousHeaderPosition = getPreviousOccurrenceIndex("\n#", cursorPosition) + 1;
+  const previousHeaderPosition = getPreviousOccurrenceIndex(`
+#`, cursorPosition) + 1;
   if (previousHeaderPosition === 1) {
     setCursorPosition(0);
   } else {
@@ -292,7 +298,8 @@ var jumpToPreviousHeader = () => {
 };
 var jumpToNextHeader = () => {
   const cursorPosition = getCursorPosition();
-  const nextHeaderPosition = getNextOccurrenceIndex("\n#", cursorPosition) + 1;
+  const nextHeaderPosition = getNextOccurrenceIndex(`
+#`, cursorPosition) + 1;
   setCursorPosition(nextHeaderPosition);
 };
 // src/actions-markdown-highlighting.ts
@@ -473,7 +480,8 @@ var linebreakKeepIndentation = () => {
   if (isListItem) {
     indentation += "  ";
   }
-  const newLineText = `\n${indentation}`;
+  const newLineText = `
+${indentation}`;
   insertTextAndSetCursor(newLineText, currentLineEndIndex);
 };
 // src/actions-markdown-tasks.ts
@@ -533,11 +541,14 @@ class ToggleMarkdown {
     return this.selectionHasItem(selectedLines, (line) => this.lineHasTask(line));
   }
   toggleTasksSelection = (selection) => {
-    const selectedLines = selection.split("\n");
+    const selectedLines = selection.split(`
+`);
     if (this.selectionHasTask(selectedLines)) {
-      return selectedLines.map((line) => this.removeTaskMarkerIfRequired(line)).join("\n");
+      return selectedLines.map((line) => this.removeTaskMarkerIfRequired(line)).join(`
+`);
     }
-    return selectedLines.map((line) => this.addTaskMarkerIfRequired(line)).join("\n");
+    return selectedLines.map((line) => this.addTaskMarkerIfRequired(line)).join(`
+`);
   };
   toggleMarkdownTasks = () => {
     this.toggleMarkdown(this.toggleTasksSelection);
@@ -564,11 +575,14 @@ class ToggleMarkdown {
     return this.selectionHasItem(selectedLines, (line) => this.lineHasCheckbox(line) && this.lineIsChecked(line));
   }
   toggleCheckboxesSelection = (selection) => {
-    const selectedLines = selection.split("\n");
+    const selectedLines = selection.split(`
+`);
     if (this.selectionIsChecked(selectedLines)) {
-      return selectedLines.map((line) => this.uncheckBox(line)).join("\n");
+      return selectedLines.map((line) => this.uncheckBox(line)).join(`
+`);
     }
-    return selectedLines.map((line) => this.checkBox(line)).join("\n");
+    return selectedLines.map((line) => this.checkBox(line)).join(`
+`);
   };
   toggleMarkdownCheckboxes = () => {
     this.toggleMarkdown(this.toggleCheckboxesSelection);
@@ -672,7 +686,9 @@ var toCamelCase = () => {
 };
 var sortLines = () => {
   transformAndReplaceSelectedText((selectedText) => {
-    return selectedText.split("\n").sort((a, b) => a.localeCompare(b)).join("\n");
+    return selectedText.split(`
+`).sort((a, b) => a.localeCompare(b)).join(`
+`);
   });
 };
 // src/actions-transform-math.ts
@@ -687,7 +703,7 @@ class MathEvaluator {
   }
   evaluate() {
     const sanitizedExpression = this.trimmedText.replace(/[^0-9+\-*/(). ]/g, "");
-    const result = (0, eval)(sanitizedExpression);
+    const result = eval(sanitizedExpression);
     return String(result);
   }
   findSeparator() {
@@ -761,6 +777,7 @@ var mean = () => {
 // src/actions-shortcuts.ts
 var copyAllTagsToClipboard = () => {
   const uniqueTagsArray = Tag.query("");
-  const sortedTags = uniqueTagsArray.sort().join("\n");
+  const sortedTags = uniqueTagsArray.sort().join(`
+`);
   copyToClipboard(sortedTags);
 };
