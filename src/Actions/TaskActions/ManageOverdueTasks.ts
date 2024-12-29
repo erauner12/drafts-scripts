@@ -160,21 +160,12 @@ export async function manageOverdueTasks(): Promise<void> {
         const userAction = actionPrompt.buttonPressed;
         logCustomMessage("User selected action: " + userAction);
 
-        // Actual logic for each user action
-        if (userAction === "Reschedule to Today") {
-          await rescheduleTasksToToday(todoist, selectedTasks);
-        } else if (userAction === "Complete Tasks") {
-          await completeTasks(todoist, selectedTasks);
-        }
+        // Instead of actually performing the updates here,
+        // store user selections in template tags for next step:
+        draft.setTemplateTag("OverdueTasksData", JSON.stringify(selectedTasks));
+        draft.setTemplateTag("OverdueTasksAction", userAction);
 
-        if (selectedTasks.length > 0) {
-          const chosenTasks = selectedTasks
-            .map((t: any) => t.id + ': "' + t.content + '"')
-            .join(", ");
-          logCustomMessage("Selected tasks: [" + chosenTasks + "]");
-        }
-
-        alert("Tasks processed successfully!");
+        alert("Selections saved. Please run the next step to execute changes.");
         logCustomMessage(
           "manageOverdueTasks() completed user prompt logic successfully."
         );

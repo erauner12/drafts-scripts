@@ -789,39 +789,6 @@ var copyAllTagsToClipboard = () => {
   copyToClipboard(sortedTags);
 };
 // src/Actions/TaskActions/ManageOverdueTasks.ts
-async function rescheduleTasksToToday(todoistClient, tasks) {
-  for (const task of tasks) {
-    try {
-      logCustomMessage("Rescheduling task " + task.id + " to today...");
-      await todoistClient.updateTask(task.id, {
-        due_string: "today",
-        due_lang: "en"
-      });
-      logCustomMessage("Task " + task.id + " successfully rescheduled to today.");
-      const updatedTask = await todoistClient.getTask(task.id);
-      if (!updatedTask?.due) {
-        logCustomMessage(`Task ${task.id} has no due date after update. Something is off.`, true);
-      } else {
-        logCustomMessage(`Task ${task.id} is now due on: ${updatedTask.due.date}`);
-      }
-    } catch (error) {
-      logCustomMessage("Error rescheduling task " + task.id + ": " + String(error), true);
-      alert("Error rescheduling task " + task.id + ": " + String(error));
-    }
-  }
-}
-async function completeTasks(todoistClient, tasks) {
-  for (const task of tasks) {
-    try {
-      logCustomMessage("Completing task " + task.id + "...");
-      await todoistClient.closeTask(task.id);
-      logCustomMessage("Task " + task.id + " has been marked complete.");
-    } catch (error) {
-      logCustomMessage("Error completing task " + task.id + ": " + String(error), true);
-      alert("Error completing task " + task.id + ": " + String(error));
-    }
-  }
-}
 async function manageOverdueTasks() {
   logCustomMessage("manageOverdueTasks() invoked. Starting process.");
   try {
@@ -876,16 +843,9 @@ async function manageOverdueTasks() {
       if (actionDidShow) {
         const userAction = actionPrompt.buttonPressed;
         logCustomMessage("User selected action: " + userAction);
-        if (userAction === "Reschedule to Today") {
-          await rescheduleTasksToToday(todoist, selectedTasks);
-        } else if (userAction === "Complete Tasks") {
-          await completeTasks(todoist, selectedTasks);
-        }
-        if (selectedTasks.length > 0) {
-          const chosenTasks = selectedTasks.map((t) => t.id + ': "' + t.content + '"').join(", ");
-          logCustomMessage("Selected tasks: [" + chosenTasks + "]");
-        }
-        alert("Tasks processed successfully!");
+        draft.setTemplateTag("OverdueTasksData", JSON.stringify(selectedTasks));
+        draft.setTemplateTag("OverdueTasksAction", userAction);
+        alert("Selections saved. Please run the next step to execute changes.");
         logCustomMessage("manageOverdueTasks() completed user prompt logic successfully.");
       } else {
         logCustomMessage("User cancelled the action prompt. Exiting script.");
@@ -948,4 +908,73 @@ var openTaskMenu = () => {
 // src/Actions/TaskActions/ActionRunner.ts
 function actionRunner() {
   openTaskMenu();
+}
+// src/Actions/TaskActions/ManageOverdueTasksExec.ts
+async function rescheduleTasksToToday(todoistClient, tasks) {
+  for (const task of tasks) {
+    try {
+      logCustomMessage("Rescheduling task " + task.id + " to today...");
+      await todoistClient.updateTask(task.id, {
+        due_string: "today at 23:59",
+        due_lang: "en"
+      });
+      logCustomMessage("Task " + task.id + " successfully rescheduled to today.");
+      const updatedTask = await todoistClient.getTask(task.id);
+      if (!updatedTask?.due) {
+        logCustomMessage(`Task ${task.id} has no due date after update. Something is off.`, true);
+      } else {
+        logCustomMessage(`Task ${task.id} is now due on: ${updatedTask.due.date}`);
+      }
+    } catch (error) {
+      logCustomMessage("Error rescheduling task " + task.id + ": " + String(error), true);
+      alert("Error rescheduling task " + task.id + ": " + String(error));
+    }
+  }
+}
+async function completeTasks(todoistClient, tasks) {
+  for (const task of tasks) {
+    try {
+      logCustomMessage("Completing task " + task.id + "...");
+      await todoistClient.closeTask(task.id);
+      logCustomMessage("Task " + task.id + " has been marked complete.");
+    } catch (error) {
+      logCustomMessage("Error completing task " + task.id + ": " + String(error), true);
+      alert("Error completing task " + task.id + ": " + String(error));
+    }
+  }
+}
+async function executeOverdueTasksAction() {
+  logCustomMessage("executeOverdueTasksAction() invoked. Starting execution step.");
+  try {
+    const selectedTasksData = draft.getTemplateTag("OverdueTasksData") || "";
+    const selectedAction = draft.getTemplateTag("OverdueTasksAction") || "";
+    if (!selectedTasksData || !selectedAction) {
+      logCustomMessage("No stored tasks or action found in template tags. Exiting.");
+      alert("No overdue tasks or action found. Make sure you ran Step 1 first.");
+      return;
+    }
+    const selectedTasks = JSON.parse(selectedTasksData);
+    logCustomMessage("Re-authorizing Todoist credentials...");
+    const credential = Credential.create("Todoist", "Todoist API Token");
+    credential.addPasswordField("apiToken", "API Token");
+    credential.authorize();
+    logCustomMessage("Credentials authorized successfully.");
+    const TODOIST_API_TOKEN = credential.getValue("apiToken");
+    const todoist = Todoist.create();
+    todoist.token = TODOIST_API_TOKEN;
+    logCustomMessage("Todoist API token set.");
+    if (selectedAction === "Reschedule to Today") {
+      await rescheduleTasksToToday(todoist, selectedTasks);
+    } else if (selectedAction === "Complete Tasks") {
+      await completeTasks(todoist, selectedTasks);
+    } else {
+      logCustomMessage(`Unknown action: ${selectedAction}`, true);
+      alert("Unknown action selected: " + selectedAction);
+    }
+    alert("Tasks processed successfully!");
+    logCustomMessage("executeOverdueTasksAction() finished successfully.");
+  } catch (error) {
+    logCustomMessage("Error in executeOverdueTasksAction: " + error, true);
+    alert("An error occurred: " + error);
+  }
 }

@@ -77,6 +77,6 @@ export {
   manageOverdueTasksAux,
 } from "./Actions/TaskActions/ManageOverdueTasks";
 
+export { executeOverdueTasksAction } from "./Actions/TaskActions/ManageOverdueTasksExec";
 
 export { openTaskMenu } from "./Actions/TaskActions/TaskMenu";
-
