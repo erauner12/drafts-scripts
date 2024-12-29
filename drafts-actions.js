@@ -919,8 +919,10 @@ async function selectTasksStep() {
     actionPrompt.title = "Select Action";
     actionPrompt.message = "Choose an action for the selected tasks:";
     actionPrompt.addButton("Reschedule to Today");
+    actionPrompt.addButton("Reschedule to Tomorrow");
     actionPrompt.addButton("Complete Tasks");
     actionPrompt.addButton("Remove Due Date");
+    actionPrompt.addButton("Add Priority Flag");
     actionPrompt.addButton("Cancel");
     const actionDidShow = actionPrompt.show();
     if (!actionDidShow || actionPrompt.buttonPressed === "Cancel") {
@@ -963,11 +965,17 @@ async function executeSelectedTasksStep() {
       case "Reschedule to Today":
         await rescheduleTasksToToday(todoist, tasksToProcess);
         break;
+      case "Reschedule to Tomorrow":
+        await rescheduleTasksToTomorrow(todoist, tasksToProcess);
+        break;
       case "Complete Tasks":
         await completeTasks(todoist, tasksToProcess);
         break;
       case "Remove Due Date":
         await removeTasksDueDate(todoist, tasksToProcess);
+        break;
+      case "Add Priority Flag":
+        await setPriorityFlag(todoist, tasksToProcess);
         break;
       default:
         alert(`Unknown action: ${selectedAction}`);
@@ -989,6 +997,22 @@ async function rescheduleTasksToToday(todoist, tasks) {
       const updateSuccess = await todoist.updateTask(task.id, {
         content: task.content,
         due_string: "today"
+      });
+      if (!updateSuccess) {
+        log(`Failed to reschedule task id: ${task.id} - ${todoist.lastError}`, true);
+      }
+    } catch (err) {
+      log(`Error rescheduling task id: ${task.id} - ${String(err)}`, true);
+    }
+  }
+}
+async function rescheduleTasksToTomorrow(todoist, tasks) {
+  for (const task of tasks) {
+    try {
+      log(`Rescheduling task "${task.content}" (id: ${task.id}) to tomorrow.`);
+      const updateSuccess = await todoist.updateTask(task.id, {
+        content: task.content,
+        due_string: "tomorrow"
       });
       if (!updateSuccess) {
         log(`Failed to reschedule task id: ${task.id} - ${todoist.lastError}`, true);
@@ -1024,6 +1048,22 @@ async function removeTasksDueDate(todoist, tasks) {
       }
     } catch (err) {
       log(`Error removing due date for task id: ${task.id} - ${String(err)}`, true);
+    }
+  }
+}
+async function setPriorityFlag(todoist, tasks) {
+  for (const task of tasks) {
+    try {
+      log(`Setting priority flag for task "${task.content}" (id: ${task.id}).`);
+      const updateSuccess = await todoist.updateTask(task.id, {
+        content: task.content,
+        priority: 4
+      });
+      if (!updateSuccess) {
+        log(`Failed to set priority flag for task id: ${task.id} - ${todoist.lastError}`, true);
+      }
+    } catch (err) {
+      log(`Error setting priority flag for task id: ${task.id} - ${String(err)}`, true);
     }
   }
 }
