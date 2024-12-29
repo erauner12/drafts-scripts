@@ -1056,6 +1056,7 @@ async function selectTasksStep() {
     actionPrompt.message = "Choose an action for the selected tasks:";
     actionPrompt.addButton("Reschedule to Today");
     actionPrompt.addButton("Reschedule to Tomorrow");
+    actionPrompt.addButton("Reschedule to Future");
     actionPrompt.addButton("Complete Tasks");
     actionPrompt.addButton("Remove Due Date");
     actionPrompt.addButton("Add Priority Flag");
@@ -1098,40 +1099,24 @@ async function executeSelectedTasksStep() {
       return;
     }
     switch (selectedAction) {
-      case "Reschedule": {
-        let subPrompt = new Prompt;
-        subPrompt.title = "Reschedule Options";
-        subPrompt.message = "Choose a scheduling option for these tasks:";
-        subPrompt.addButton("Today (pick time)");
-        subPrompt.addButton("Tomorrow (pick time)");
-        subPrompt.addButton("Custom Future Date/Time");
-        subPrompt.addButton("Cancel");
-        if (!subPrompt.show() || subPrompt.buttonPressed === "Cancel") {
-          log("User canceled or dismissed the reschedule sub-prompt.");
-          break;
+      case "Reschedule to Today": {
+        for (const task of tasksToProcess) {
+          await updateToToday(todoist, task);
         }
-        switch (subPrompt.buttonPressed) {
-          case "Today (pick time)": {
-            for (const task of tasksToProcess) {
-              await updateToToday(todoist, task);
-            }
-            break;
-          }
-          case "Tomorrow (pick time)": {
-            for (const task of tasksToProcess) {
-              await todoist.updateTask(task.id, {
-                content: task.content,
-                due_string: "tomorrow"
-              });
-            }
-            break;
-          }
-          case "Custom Future Date/Time": {
-            for (const task of tasksToProcess) {
-              await moveToFuture(todoist, task);
-            }
-            break;
-          }
+        break;
+      }
+      case "Reschedule to Tomorrow": {
+        for (const task of tasksToProcess) {
+          await todoist.updateTask(task.id, {
+            content: task.content,
+            due_string: "tomorrow"
+          });
+        }
+        break;
+      }
+      case "Reschedule to Future": {
+        for (const task of tasksToProcess) {
+          await moveToFuture(todoist, task);
         }
         break;
       }
