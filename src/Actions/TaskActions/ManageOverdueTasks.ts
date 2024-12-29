@@ -5,13 +5,9 @@
  */
 
 import { logCustomMessage } from "../../helpers-utils";
-// Declarations for unknown Drafts types and global functions
+
+// Global functions still need declaration
 declare function alert(message: string): void;
-declare var Credential: any;
-declare var Todoist: any;
-declare var context: any; // used for context.cancel()
-declare var Prompt: any;
-declare var Draft: any;
 
 /**
  * Runs the Manage Overdue Tasks action with more detailed logging.

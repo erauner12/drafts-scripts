@@ -7,17 +7,16 @@ import { manageOverdueTasks } from "./ManageOverdueTasks";
  * Uses a fallback no-op logger if global.Logger is not defined.
  */
 
-// Minimal declarations for Drafts environment
+// Using proper types from Drafts environment
 declare function alert(message: string): void;
-declare var context: any; // used for context.cancel()
-declare var Logger:
+declare const context: Context;
+declare const Logger:
   | {
-      info: (msg: string) => void;
-      warn: (msg: string) => void;
-      error: (msg: string) => void;
+      info(msg: string): void;
+      warn(msg: string): void;
+      error(msg: string): void;
     }
   | undefined;
-declare var Prompt: any;
 
 /**
  * TaskMenu_run
@@ -29,9 +28,9 @@ export const openTaskMenu = (): void => {
     typeof Logger !== "undefined"
       ? Logger
       : {
-          info: function () {},
-          warn: function () {},
-          error: function () {},
+          info: () => {},
+          warn: () => {},
+          error: () => {},
         };
 
   logger.info("TaskMenu: Starting menu prompt.");
@@ -51,7 +50,7 @@ export const openTaskMenu = (): void => {
   const didSelect = prompt.show();
   if (!didSelect || prompt.buttonPressed === "Cancel") {
     logger.info("TaskMenu: User canceled or dismissed the prompt.");
-    context.cancel();
+    context.cancel("User canceled task menu");
     return;
   }
 
@@ -86,14 +85,7 @@ export const openTaskMenu = (): void => {
 
     default:
       logger.warn("TaskMenu: Unexpected button pressed.");
-      context.cancel();
+      context.cancel("Unexpected button selection in task menu");
       break;
   }
 };
-
-/**
- * Placeholder for an action-specific script to manage overdue tasks.
- */
-// function manageOverdueTasks() {
-//   throw new Error("Function not implemented.");
-// }
