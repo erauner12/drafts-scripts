@@ -1,4 +1,20 @@
+var __defProp = Object.defineProperty;
+var __export = (target, all) => {
+  for (var name in all)
+    __defProp(target, name, {
+      get: all[name],
+      enumerable: true,
+      configurable: true,
+      set: (newValue) => all[name] = () => newValue
+    });
+};
+
 // src/Actions/TaskActions/DateTimePrompts.ts
+var exports_DateTimePrompts = {};
+__export(exports_DateTimePrompts, {
+  pickTimeForToday: () => pickTimeForToday,
+  pickFutureDate: () => pickFutureDate
+});
 function pickTimeForToday() {
   let timePrompt = new Prompt;
   timePrompt.title = "Set Time for Today";
@@ -945,6 +961,23 @@ async function handleNoDurationTasks(todoist) {
   log(`Found ${noDurationTasks.length} tasks due today with no duration.`);
   return noDurationTasks;
 }
+async function updateToToday(todoist, task) {
+  let updateOptions = { content: task.content };
+  const chosenTime = pickTimeForToday();
+  if (!chosenTime)
+    return;
+  updateOptions.due_string = chosenTime;
+  await todoist.updateTask(task.id, updateOptions);
+}
+async function moveToFuture(todoist, task) {
+  const { pickFutureDate: pickFutureDate2 } = await Promise.resolve().then(() => exports_DateTimePrompts);
+  let updateOptions = { content: task.content };
+  const dateChoice = pickFutureDate2();
+  if (!dateChoice)
+    return;
+  Object.assign(updateOptions, dateChoice);
+  await todoist.updateTask(task.id, updateOptions);
+}
 
 // src/Actions/TaskActions/TodoistEnhancedMenu.ts
 async function runTodoistEnhancedMenu() {
@@ -1065,12 +1098,43 @@ async function executeSelectedTasksStep() {
       return;
     }
     switch (selectedAction) {
-      case "Reschedule to Today":
-        await rescheduleTasksToToday(todoist, tasksToProcess);
+      case "Reschedule": {
+        let subPrompt = new Prompt;
+        subPrompt.title = "Reschedule Options";
+        subPrompt.message = "Choose a scheduling option for these tasks:";
+        subPrompt.addButton("Today (pick time)");
+        subPrompt.addButton("Tomorrow (pick time)");
+        subPrompt.addButton("Custom Future Date/Time");
+        subPrompt.addButton("Cancel");
+        if (!subPrompt.show() || subPrompt.buttonPressed === "Cancel") {
+          log("User canceled or dismissed the reschedule sub-prompt.");
+          break;
+        }
+        switch (subPrompt.buttonPressed) {
+          case "Today (pick time)": {
+            for (const task of tasksToProcess) {
+              await updateToToday(todoist, task);
+            }
+            break;
+          }
+          case "Tomorrow (pick time)": {
+            for (const task of tasksToProcess) {
+              await todoist.updateTask(task.id, {
+                content: task.content,
+                due_string: "tomorrow"
+              });
+            }
+            break;
+          }
+          case "Custom Future Date/Time": {
+            for (const task of tasksToProcess) {
+              await moveToFuture(todoist, task);
+            }
+            break;
+          }
+        }
         break;
-      case "Reschedule to Tomorrow":
-        await rescheduleTasksToTomorrow(todoist, tasksToProcess);
-        break;
+      }
       case "Complete Tasks":
         await completeTasks(todoist, tasksToProcess);
         break;
@@ -1091,38 +1155,6 @@ async function executeSelectedTasksStep() {
   } catch (error) {
     log(`Error in executeSelectedTasksStep: ${error}`, true);
     script.complete();
-  }
-}
-async function rescheduleTasksToToday(todoist, tasks) {
-  for (const task of tasks) {
-    try {
-      log(`Rescheduling task "${task.content}" (id: ${task.id}) to today.`);
-      const updateSuccess = await todoist.updateTask(task.id, {
-        content: task.content,
-        due_string: "today"
-      });
-      if (!updateSuccess) {
-        log(`Failed to reschedule task id: ${task.id} - ${todoist.lastError}`, true);
-      }
-    } catch (err) {
-      log(`Error rescheduling task id: ${task.id} - ${String(err)}`, true);
-    }
-  }
-}
-async function rescheduleTasksToTomorrow(todoist, tasks) {
-  for (const task of tasks) {
-    try {
-      log(`Rescheduling task "${task.content}" (id: ${task.id}) to tomorrow.`);
-      const updateSuccess = await todoist.updateTask(task.id, {
-        content: task.content,
-        due_string: "tomorrow"
-      });
-      if (!updateSuccess) {
-        log(`Failed to reschedule task id: ${task.id} - ${todoist.lastError}`, true);
-      }
-    } catch (err) {
-      log(`Error rescheduling task id: ${task.id} - ${String(err)}`, true);
-    }
   }
 }
 async function completeTasks(todoist, tasks) {

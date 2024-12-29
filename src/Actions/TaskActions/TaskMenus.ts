@@ -162,7 +162,7 @@ export async function handleNoDurationTasks(
 }
 
 // INTERNAL HELPER FUNCTIONS
-async function updateToToday(todoist: Todoist, task: TodoistTask) {
+export async function updateToToday(todoist: Todoist, task: TodoistTask) {
   let updateOptions: any = { content: task.content };
 
   const chosenTime = pickTimeForToday();
@@ -172,7 +172,7 @@ async function updateToToday(todoist: Todoist, task: TodoistTask) {
   await todoist.updateTask(task.id, updateOptions);
 }
 
-async function moveToFuture(todoist: Todoist, task: TodoistTask) {
+export async function moveToFuture(todoist: Todoist, task: TodoistTask) {
   const { pickFutureDate } = await import("./DateTimePrompts");
   let updateOptions: any = { content: task.content };
 
