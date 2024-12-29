@@ -23,11 +23,13 @@ async function rescheduleTasksToToday(
   for (const task of tasks) {
     try {
       logCustomMessage("Rescheduling task " + task.id + " to today...");
-      await todoistClient.updateTask(task.id, { due_string: "today" });
+      await todoistClient.updateTask(task.id, {
+        due_string: "today",
+        due_lang: "en",
+      });
       logCustomMessage(
         "Task " + task.id + " successfully rescheduled to today."
       );
-
       const updatedTask = (await todoistClient.getTask(task.id)) as Task;
       if (!updatedTask?.due) {
         logCustomMessage(
@@ -39,7 +41,6 @@ async function rescheduleTasksToToday(
           `Task ${task.id} is now due on: ${updatedTask.due.date}`
         );
       }
-
     } catch (error) {
       logCustomMessage(
         "Error rescheduling task " + task.id + ": " + String(error),
@@ -93,7 +94,7 @@ export async function manageOverdueTasks(): Promise<void> {
     logCustomMessage("Todoist API token set.");
 
     logCustomMessage("Fetching tasks filtered by 'overdue'...");
-    const tasks = todoist.getTasks({ filter: "overdue" });
+    const tasks = await todoist.getTasks({ filter: "overdue" });
     logCustomMessage("Retrieved " + tasks.length + " overdue tasks.");
 
     // Log the raw content of each overdue task
