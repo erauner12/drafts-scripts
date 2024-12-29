@@ -4,11 +4,11 @@
  * Script to manage overdue tasks. Additional logging is added for clarity.
  */
 
+import { Task } from "@doist/todoist-api-typescript";
 import { logCustomMessage } from "../../helpers-utils";
 
 // Global functions still need declaration
 declare function alert(message: string): void;
-
 /**
  * Runs the Manage Overdue Tasks action with more detailed logging.
  */
@@ -18,12 +18,12 @@ declare function alert(message: string): void;
  */
 async function rescheduleTasksToToday(
   todoistClient: Todoist,
-  tasks: object[]
+  tasks: Task[]
 ): Promise<void> {
   for (const task of tasks) {
     try {
       logCustomMessage("Rescheduling task " + task.id + " to today...");
-      await todoistClient.updateTask(task.id, { due_string: "today" });
+      todoistClient.updateTask(task.id, { due_string: "today" });
       logCustomMessage(
         "Task " + task.id + " successfully rescheduled to today."
       );
@@ -75,7 +75,7 @@ export async function manageOverdueTasks(): Promise<void> {
     logCustomMessage("Todoist API token set.");
 
     logCustomMessage("Fetching tasks filtered by 'overdue'...");
-    const tasks = await todoist.getTasks({ filter: "overdue" });
+    const tasks = todoist.getTasks({ filter: "overdue" });
     logCustomMessage("Retrieved " + tasks.length + " overdue tasks.");
 
     // Log the raw content of each overdue task
