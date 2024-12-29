@@ -978,6 +978,115 @@ async function moveToFuture(todoist, task) {
   Object.assign(updateOptions, dateChoice);
   await todoist.updateTask(task.id, updateOptions);
 }
+async function assignDurationToTask(todoist, task) {
+  log(`Assigning duration to task: "${task.content}"`);
+  if (!task.due?.datetime) {
+    log(`Task does not have a due time. Setting the due time to 1 hour from now so we can add a duration.`);
+    const oneHourFromNow = new Date;
+    oneHourFromNow.setHours(oneHourFromNow.getHours() + 1);
+    const isoTime = oneHourFromNow.toISOString();
+    const timeUpdate = {
+      content: task.content,
+      due_datetime: isoTime
+    };
+    let setDueTimeSuccess = await todoist.updateTask(task.id, timeUpdate);
+    if (!setDueTimeSuccess) {
+      log(`Failed to set due time for ${task.content}. Aborting.`, true);
+      return false;
+    }
+  }
+  let durationPrompt = new Prompt;
+  durationPrompt.title = "Assign Duration";
+  durationPrompt.message = `Assign a duration for:
+"${task.content}"`;
+  const durations = ["15 minutes", "30 minutes", "1 hour", "2 hours", "Custom"];
+  durations.forEach((d) => durationPrompt.addButton(d));
+  durationPrompt.addButton("Skip");
+  if (!durationPrompt.show()) {
+    log(`User skipped assigning duration for "${task.content}"`);
+    return false;
+  }
+  const userButton = durationPrompt.buttonPressed;
+  if (userButton === "Skip") {
+    log(`User pressed skip for "${task.content}". Setting default 60 minute duration...`);
+    let skipDuration = 60;
+    let skipUpdate = {
+      content: task.content,
+      duration: skipDuration,
+      duration_unit: "minute"
+    };
+    let skipSuccess = await todoist.updateTask(task.id, skipUpdate);
+    if (skipSuccess) {
+      log(`Defaulted duration: ${skipDuration} minutes to "${task.content}" since user skipped setting a custom duration.`);
+      return true;
+    } else {
+      log(`Failed to default duration for "${task.content}" - ${todoist.lastError}`, true);
+      return false;
+    }
+  } else if (durations.includes(userButton)) {
+    log(`User selected duration: ${userButton}`);
+    if (userButton !== "Custom") {
+      let [amount, unitText] = userButton.split(" ");
+      let durationAmount = parseInt(amount);
+      if (unitText.startsWith("hour")) {
+        durationAmount = durationAmount * 60;
+      }
+      let durationUpdate = {
+        content: task.content,
+        duration: durationAmount,
+        duration_unit: "minute"
+      };
+      let durationSuccess = await todoist.updateTask(task.id, durationUpdate);
+      if (durationSuccess) {
+        log(`Assigned duration: ${durationAmount} minutes to "${task.content}"`);
+        return true;
+      } else {
+        log(`Failed to assign duration to "${task.content}" - ${todoist.lastError}`, true);
+        return false;
+      }
+    } else {
+      let customDurationPrompt = new Prompt;
+      customDurationPrompt.title = "Custom Duration";
+      customDurationPrompt.message = `Enter a custom duration for:
+"${task.content}"`;
+      customDurationPrompt.addTextField("customDuration", "Duration (e.g., 45 minutes)", "");
+      customDurationPrompt.addButton("Save");
+      customDurationPrompt.addButton("Cancel");
+      if (customDurationPrompt.show()) {
+        if (customDurationPrompt.buttonPressed === "Save") {
+          let customDurationInput = customDurationPrompt.fieldValues["customDuration"];
+          log(`User entered custom duration: ${customDurationInput}`);
+          let customMatch = customDurationInput.match(/(\d+)\s*(minute|minutes|hour|hours|day|days)/i);
+          if (customMatch) {
+            let amount = parseInt(customMatch[1]);
+            let unitInput = customMatch[2].toLowerCase();
+            if (unitInput.startsWith("hour")) {
+              amount = amount * 60;
+            }
+            let customDurationUpdate = {
+              content: task.content,
+              duration: amount,
+              duration_unit: "minute"
+            };
+            let customDurationSuccess = await todoist.updateTask(task.id, customDurationUpdate);
+            if (customDurationSuccess) {
+              log(`Assigned custom duration: ${amount} minutes to "${task.content}"`);
+              return true;
+            } else {
+              log(`Failed to assign custom duration to "${task.content}" - ${todoist.lastError}`, true);
+              return false;
+            }
+          } else {
+            log(`Invalid custom duration format: "${customDurationInput}"`, true);
+            showAlert("Invalid Duration", "Please enter the duration like '45 minutes' or '2 hours'.");
+            return false;
+          }
+        }
+      }
+    }
+  }
+  return false;
+}
 
 // src/Actions/TaskActions/TodoistEnhancedMenu.ts
 async function runTodoistEnhancedMenu() {
@@ -1060,6 +1169,7 @@ async function selectTasksStep() {
     actionPrompt.addButton("Complete Tasks");
     actionPrompt.addButton("Remove Due Date");
     actionPrompt.addButton("Add Priority Flag");
+    actionPrompt.addButton("Assign Duration");
     actionPrompt.addButton("Cancel");
     const actionDidShow = actionPrompt.show();
     if (!actionDidShow || actionPrompt.buttonPressed === "Cancel") {
@@ -1129,6 +1239,12 @@ async function executeSelectedTasksStep() {
       case "Add Priority Flag":
         await setPriorityFlag(todoist, tasksToProcess);
         break;
+      case "Assign Duration": {
+        for (const task of tasksToProcess) {
+          await assignDurationToTask(todoist, task);
+        }
+        break;
+      }
       default:
         alert(`Unknown action: ${selectedAction}`);
         log(`Unknown action selected: "${selectedAction}"`, true);

@@ -388,11 +388,32 @@ function showTaskSelectionPrompt(tasks: TodoistTask[]): TodoistTask | null {
   return null;
 }
 
-async function assignDurationToTask(
+export async function assignDurationToTask(
   todoist: Todoist,
   task: TodoistTask
 ): Promise<boolean> {
   log(`Assigning duration to task: "${task.content}"`);
+
+  // If task has no due datetime set, assign it to one hour from now
+  if (!task.due?.datetime) {
+    log(
+      `Task does not have a due time. Setting the due time to 1 hour from now so we can add a duration.`
+    );
+    const oneHourFromNow = new Date();
+    oneHourFromNow.setHours(oneHourFromNow.getHours() + 1);
+    const isoTime = oneHourFromNow.toISOString();
+
+    const timeUpdate: any = {
+      content: task.content,
+      due_datetime: isoTime,
+    };
+
+    let setDueTimeSuccess = await todoist.updateTask(task.id, timeUpdate);
+    if (!setDueTimeSuccess) {
+      log(`Failed to set due time for ${task.content}. Aborting.`, true);
+      return false;
+    }
+  }
 
   let durationPrompt = new Prompt();
   durationPrompt.title = "Assign Duration";
@@ -407,12 +428,37 @@ async function assignDurationToTask(
     return false;
   }
 
-  if (durations.includes(durationPrompt.buttonPressed)) {
-    let selectedDuration = durationPrompt.buttonPressed;
-    log(`User selected duration: ${selectedDuration}`);
+  const userButton = durationPrompt.buttonPressed;
 
-    if (selectedDuration !== "Custom") {
-      let [amount, unitText] = selectedDuration.split(" ");
+  // If user presses skip, default to 60 minutes
+  if (userButton === "Skip") {
+    log(
+      `User pressed skip for "${task.content}". Setting default 60 minute duration...`
+    );
+    let skipDuration = 60;
+    let skipUpdate: any = {
+      content: task.content,
+      duration: skipDuration,
+      duration_unit: "minute",
+    };
+    let skipSuccess = await todoist.updateTask(task.id, skipUpdate);
+    if (skipSuccess) {
+      log(
+        `Defaulted duration: ${skipDuration} minutes to "${task.content}" since user skipped setting a custom duration.`
+      );
+      return true;
+    } else {
+      log(
+        `Failed to default duration for "${task.content}" - ${todoist.lastError}`,
+        true
+      );
+      return false;
+    }
+  } else if (durations.includes(userButton)) {
+    log(`User selected duration: ${userButton}`);
+
+    if (userButton !== "Custom") {
+      let [amount, unitText] = userButton.split(" ");
       let durationAmount = parseInt(amount);
 
       if (unitText.startsWith("hour")) {

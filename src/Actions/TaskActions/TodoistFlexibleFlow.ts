@@ -17,7 +17,7 @@
  */
 
 import { getTodoistCredential, log } from "../../helpers-utils";
-import { moveToFuture, updateToToday } from "./TaskMenus";
+import { assignDurationToTask, moveToFuture, updateToToday } from "./TaskMenus";
 
 declare function alert(message: string): void;
 declare var console: { log(msg: string): void };
@@ -151,6 +151,7 @@ export async function selectTasksStep(): Promise<void> {
     actionPrompt.addButton("Complete Tasks");
     actionPrompt.addButton("Remove Due Date");
     actionPrompt.addButton("Add Priority Flag");
+    actionPrompt.addButton("Assign Duration");
     actionPrompt.addButton("Cancel");
 
     const actionDidShow = actionPrompt.show();
@@ -246,6 +247,13 @@ export async function executeSelectedTasksStep(): Promise<void> {
       case "Add Priority Flag":
         await setPriorityFlag(todoist, tasksToProcess);
         break;
+      case "Assign Duration": {
+        // Import assignDurationToTask from TaskMenus.ts
+        for (const task of tasksToProcess) {
+          await assignDurationToTask(todoist, task);
+        }
+        break;
+      }
       default:
         alert(`Unknown action: ${selectedAction}`);
         log(`Unknown action selected: "${selectedAction}"`, true);
