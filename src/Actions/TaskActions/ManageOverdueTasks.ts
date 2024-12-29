@@ -174,21 +174,6 @@ export async function manageOverdueTasks(): Promise<void> {
           logCustomMessage("Selected tasks: [" + chosenTasks + "]");
         }
 
-        // Prepare the temporary draft to hold data
-        // @ts-ignore
-        const tempDraft = Draft.create();
-        tempDraft.addTag("temp");
-        tempDraft.setTemplateTag("actionType", userAction);
-        tempDraft.setTemplateTag(
-          "selectedTasks",
-          JSON.stringify(selectedTasks)
-        );
-        tempDraft.update();
-
-        logCustomMessage(
-          "Temporary draft created with user selections. ID: " + tempDraft.uuid
-        );
-
         alert("Tasks processed successfully!");
         logCustomMessage(
           "manageOverdueTasks() completed user prompt logic successfully."
