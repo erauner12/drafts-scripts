@@ -191,7 +191,13 @@ export async function executeSelectedTasksStep(): Promise<void> {
   log("executeSelectedTasksStep() invoked.");
 
   // Provide your Todoist API token again (or retrieve from credential)
-  const TODOIST_API_TOKEN = "20fdade709c084c2e255e56e57d0e53370e8283e";
+  const credential = Credential.create(
+    "Todoist",
+    "Credentials for Todoist API."
+  );
+  credential.addTextField("token", "Todoist API Token");
+  credential.authorize();
+  const TODOIST_API_TOKEN = credential.getValue("Todoist");
   const todoist = Todoist.create();
   todoist.token = TODOIST_API_TOKEN;
 
