@@ -8,15 +8,6 @@ import { manageOverdueTasks } from "./ManageOverdueTasks";
  */
 
 // Using proper types from Drafts environment
-declare function alert(message: string): void;
-declare const context: Context;
-declare const Logger:
-  | {
-      info(msg: string): void;
-      warn(msg: string): void;
-      error(msg: string): void;
-    }
-  | undefined;
 
 /**
  * TaskMenu_run
@@ -24,16 +15,8 @@ declare const Logger:
  */
 export const openTaskMenu = (): void => {
   // Use a fallback no-op logger if global.Logger is not defined
-  const logger =
-    typeof Logger !== "undefined"
-      ? Logger
-      : {
-          info: () => {},
-          warn: () => {},
-          error: () => {},
-        };
 
-  logger.info("TaskMenu: Starting menu prompt.");
+  logCustomMessage("TaskMenu: Starting menu prompt.");
   logCustomMessage("openTaskMenu() invoked - presenting the menu.");
 
   const prompt = new Prompt();
@@ -45,16 +28,16 @@ export const openTaskMenu = (): void => {
   prompt.addButton("Manage Deadlines");
   prompt.addButton("Schedule Tasks for Tomorrow");
   prompt.addButton("Some Other Custom Action");
-  prompt.addButton("Cancel", "cancel", true);
+  prompt.addButton("Cancel");
 
   const didSelect = prompt.show();
   if (!didSelect || prompt.buttonPressed === "Cancel") {
-    logger.info("TaskMenu: User canceled or dismissed the prompt.");
+    logCustomMessage("TaskMenu: User canceled or dismissed the prompt.");
     context.cancel("User canceled task menu");
     return;
   }
 
-  logger.info('TaskMenu: User selected "' + prompt.buttonPressed + '".');
+  logCustomMessage('TaskMenu: User selected "' + prompt.buttonPressed + '".');
   logCustomMessage("openTaskMenu() user pressed: " + prompt.buttonPressed);
 
   switch (prompt.buttonPressed) {
@@ -84,7 +67,7 @@ export const openTaskMenu = (): void => {
       break;
 
     default:
-      logger.warn("TaskMenu: Unexpected button pressed.");
+      logCustomMessage("TaskMenu: Unexpected button pressed.");
       context.cancel("Unexpected button selection in task menu");
       break;
   }

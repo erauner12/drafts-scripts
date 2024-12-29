@@ -900,15 +900,7 @@ function manageOverdueTasksAux() {
 
 // src/Actions/TaskActions/TaskMenu.ts
 var openTaskMenu = () => {
-  const logger = typeof Logger !== "undefined" ? Logger : {
-    info: function() {
-    },
-    warn: function() {
-    },
-    error: function() {
-    }
-  };
-  logger.info("TaskMenu: Starting menu prompt.");
+  logCustomMessage("TaskMenu: Starting menu prompt.");
   logCustomMessage("openTaskMenu() invoked - presenting the menu.");
   const prompt = new Prompt;
   prompt.title = "Task Management Menu";
@@ -917,14 +909,14 @@ var openTaskMenu = () => {
   prompt.addButton("Manage Deadlines");
   prompt.addButton("Schedule Tasks for Tomorrow");
   prompt.addButton("Some Other Custom Action");
-  prompt.addButton("Cancel", "cancel", true);
+  prompt.addButton("Cancel");
   const didSelect = prompt.show();
   if (!didSelect || prompt.buttonPressed === "Cancel") {
-    logger.info("TaskMenu: User canceled or dismissed the prompt.");
-    context.cancel();
+    logCustomMessage("TaskMenu: User canceled or dismissed the prompt.");
+    context.cancel("User canceled task menu");
     return;
   }
-  logger.info('TaskMenu: User selected "' + prompt.buttonPressed + '".');
+  logCustomMessage('TaskMenu: User selected "' + prompt.buttonPressed + '".');
   logCustomMessage("openTaskMenu() user pressed: " + prompt.buttonPressed);
   switch (prompt.buttonPressed) {
     case "Manage Overdue Tasks":
@@ -941,8 +933,8 @@ var openTaskMenu = () => {
       alert("You selected another custom action. (Placeholder for non-Todoist or other expansions.)");
       break;
     default:
-      logger.warn("TaskMenu: Unexpected button pressed.");
-      context.cancel();
+      logCustomMessage("TaskMenu: Unexpected button pressed.");
+      context.cancel("Unexpected button selection in task menu");
       break;
   }
 };
