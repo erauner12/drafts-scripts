@@ -2,8 +2,10 @@
   "compilerOptions": {
     "module": "ESNext",
     "target": "ESNext",
-    "lib": ["ESNext"],
-    "typeRoots": ["drafts-type-definitions.js"],
+    "lib": ["ESNext", "DOM"],
+    "typeRoots": [
+      "./drafts-type-individual"
+    ],
     "strict": true,
     "downlevelIteration": true,
     "esModuleInterop": true,
@@ -12,5 +14,8 @@
     "skipLibCheck": true,
     "useDefineForClassFields": true
   },
-  "include": ["./src/**/*.ts"]
+  "include": [
+    "./drafts-type-individual/*.d.ts",
+    "./src/**/*.ts"
+  ]
 }
