@@ -793,7 +793,7 @@ async function rescheduleTasksToToday(todoistClient, tasks) {
   for (const task of tasks) {
     try {
       logCustomMessage("Rescheduling task " + task.id + " to today...");
-      await todoistClient.updateTask(task.id, { dueString: "today" });
+      await todoistClient.updateTask(task.id, { due_string: "today" });
       logCustomMessage("Task " + task.id + " successfully rescheduled to today.");
     } catch (error) {
       logCustomMessage("Error rescheduling task " + task.id + ": " + String(error), true);

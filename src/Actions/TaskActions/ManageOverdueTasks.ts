@@ -17,14 +17,13 @@ declare function alert(message: string): void;
  * Helper function to reschedule tasks to today using the Todoist API
  */
 async function rescheduleTasksToToday(
-  todoistClient: any,
-  tasks: any[]
+  todoistClient: Todoist,
+  tasks: object[]
 ): Promise<void> {
   for (const task of tasks) {
     try {
       logCustomMessage("Rescheduling task " + task.id + " to today...");
-      // Official doc: https://developer.todoist.com/sync/v9/#update-a-task
-      await todoistClient.updateTask(task.id, { dueString: "today" });
+      await todoistClient.updateTask(task.id, { due_string: "today" });
       logCustomMessage(
         "Task " + task.id + " successfully rescheduled to today."
       );
