@@ -789,6 +789,30 @@ var copyAllTagsToClipboard = () => {
   copyToClipboard(sortedTags);
 };
 // src/Actions/TaskActions/ManageOverdueTasks.ts
+async function rescheduleTasksToToday(todoistClient, tasks) {
+  for (const task of tasks) {
+    try {
+      logCustomMessage("Rescheduling task " + task.id + " to today...");
+      await todoistClient.updateTask(task.id, { dueString: "today" });
+      logCustomMessage("Task " + task.id + " successfully rescheduled to today.");
+    } catch (error) {
+      logCustomMessage("Error rescheduling task " + task.id + ": " + String(error), true);
+      alert("Error rescheduling task " + task.id + ": " + String(error));
+    }
+  }
+}
+async function completeTasks(todoistClient, tasks) {
+  for (const task of tasks) {
+    try {
+      logCustomMessage("Completing task " + task.id + "...");
+      await todoistClient.closeTask(task.id);
+      logCustomMessage("Task " + task.id + " has been marked complete.");
+    } catch (error) {
+      logCustomMessage("Error completing task " + task.id + ": " + String(error), true);
+      alert("Error completing task " + task.id + ": " + String(error));
+    }
+  }
+}
 async function manageOverdueTasks() {
   logCustomMessage("manageOverdueTasks() invoked. Starting process.");
   try {
@@ -841,9 +865,9 @@ async function manageOverdueTasks() {
         const userAction = actionPrompt.buttonPressed;
         logCustomMessage("User selected action: " + userAction);
         if (userAction === "Reschedule to Today") {
-          logCustomMessage("The selected tasks will be rescheduled to today (pending actual code to do so).");
+          await rescheduleTasksToToday(todoist, selectedTasks);
         } else if (userAction === "Complete Tasks") {
-          logCustomMessage("The selected tasks will be marked complete (pending actual code to do so).");
+          await completeTasks(todoist, selectedTasks);
         }
         if (selectedTasks.length > 0) {
           const chosenTasks = selectedTasks.map((t) => t.id + ': "' + t.content + '"').join(", ");
@@ -855,7 +879,7 @@ async function manageOverdueTasks() {
         tempDraft.setTemplateTag("selectedTasks", JSON.stringify(selectedTasks));
         tempDraft.update();
         logCustomMessage("Temporary draft created with user selections. ID: " + tempDraft.uuid);
-        alert("Placeholder: tasks would be processed in ExecutorLib_execute().");
+        alert("Tasks processed successfully!");
         logCustomMessage("manageOverdueTasks() completed user prompt logic successfully.");
       } else {
         logCustomMessage("User cancelled the action prompt. Exiting script.");

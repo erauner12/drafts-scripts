@@ -4,8 +4,8 @@
  * Script to manage overdue tasks. Additional logging is added for clarity.
  */
 
-// Declarations for unknown Drafts types and global functions
 import { logCustomMessage } from "../../helpers-utils";
+// Declarations for unknown Drafts types and global functions
 declare function alert(message: string): void;
 declare var Credential: any;
 declare var Todoist: any;
@@ -16,10 +16,55 @@ declare var Draft: any;
 /**
  * Runs the Manage Overdue Tasks action with more detailed logging.
  */
+
+/**
+ * Helper function to reschedule tasks to today using the Todoist API
+ */
+async function rescheduleTasksToToday(
+  todoistClient: any,
+  tasks: any[]
+): Promise<void> {
+  for (const task of tasks) {
+    try {
+      logCustomMessage("Rescheduling task " + task.id + " to today...");
+      // Official doc: https://developer.todoist.com/sync/v9/#update-a-task
+      await todoistClient.updateTask(task.id, { dueString: "today" });
+      logCustomMessage(
+        "Task " + task.id + " successfully rescheduled to today."
+      );
+    } catch (error) {
+      logCustomMessage(
+        "Error rescheduling task " + task.id + ": " + String(error),
+        true
+      );
+      alert("Error rescheduling task " + task.id + ": " + String(error));
+    }
+  }
+}
+
+/**
+ * Helper function to mark tasks as complete using the Todoist API
+ */
+async function completeTasks(todoistClient: any, tasks: any[]): Promise<void> {
+  for (const task of tasks) {
+    try {
+      logCustomMessage("Completing task " + task.id + "...");
+      // Official doc: https://developer.todoist.com/sync/v9/#close-a-task
+      await todoistClient.closeTask(task.id);
+      logCustomMessage("Task " + task.id + " has been marked complete.");
+    } catch (error) {
+      logCustomMessage(
+        "Error completing task " + task.id + ": " + String(error),
+        true
+      );
+      alert("Error completing task " + task.id + ": " + String(error));
+    }
+  }
+}
+
 export async function manageOverdueTasks(): Promise<void> {
   logCustomMessage("manageOverdueTasks() invoked. Starting process.");
 
-  // Some shared helper function used by other scripts. Possibly sets up environment or config.
   try {
     logCustomMessage(
       "Attempting to create and authorize Todoist credentials..."
@@ -101,18 +146,13 @@ export async function manageOverdueTasks(): Promise<void> {
         const userAction = actionPrompt.buttonPressed;
         logCustomMessage("User selected action: " + userAction);
 
-        // Add more detail about the action to be performed
+        // Actual logic for each user action
         if (userAction === "Reschedule to Today") {
-          logCustomMessage(
-            "The selected tasks will be rescheduled to today (pending actual code to do so)."
-          );
+          await rescheduleTasksToToday(todoist, selectedTasks);
         } else if (userAction === "Complete Tasks") {
-          logCustomMessage(
-            "The selected tasks will be marked complete (pending actual code to do so)."
-          );
+          await completeTasks(todoist, selectedTasks);
         }
 
-        // List out the chosen tasks
         if (selectedTasks.length > 0) {
           const chosenTasks = selectedTasks
             .map((t: any) => t.id + ': "' + t.content + '"')
@@ -135,12 +175,7 @@ export async function manageOverdueTasks(): Promise<void> {
           "Temporary draft created with user selections. ID: " + tempDraft.uuid
         );
 
-        // Potentially pass these to an executor function if desired.
-        // ExecutorLib_execute(tempDraft);
-
-        alert(
-          "Placeholder: tasks would be processed in ExecutorLib_execute()."
-        );
+        alert("Tasks processed successfully!");
         logCustomMessage(
           "manageOverdueTasks() completed user prompt logic successfully."
         );
