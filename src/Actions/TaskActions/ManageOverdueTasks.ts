@@ -90,7 +90,6 @@ export async function manageOverdueTasks(): Promise<void> {
 
     const TODOIST_API_TOKEN = credential.getValue("apiToken");
     const todoist = Todoist.create();
-    todoist.token = TODOIST_API_TOKEN;
     logCustomMessage("Todoist API token set.");
 
     logCustomMessage("Fetching tasks filtered by 'overdue'...");
