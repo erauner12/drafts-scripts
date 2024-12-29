@@ -781,3 +781,108 @@ var copyAllTagsToClipboard = () => {
 `);
   copyToClipboard(sortedTags);
 };
+// src/Actions/TaskActions/TaskMenu.ts
+var openTaskMenu = () => {
+  const logger = typeof Logger !== "undefined" ? Logger : {
+    info: function() {
+    },
+    warn: function() {
+    },
+    error: function() {
+    }
+  };
+  logger.info("TaskMenu: Starting menu prompt.");
+  const prompt = new Prompt;
+  prompt.title = "Task Management Menu";
+  prompt.message = "Select an option to manage your tasks:";
+  prompt.addButton("Manage Overdue Tasks");
+  prompt.addButton("Manage Deadlines");
+  prompt.addButton("Schedule Tasks for Tomorrow");
+  prompt.addButton("Some Other Custom Action");
+  prompt.addButton("Cancel", "cancel", true);
+  const didSelect = prompt.show();
+  if (!didSelect || prompt.buttonPressed === "Cancel") {
+    logger.info("TaskMenu: User canceled or dismissed the prompt.");
+    context.cancel();
+    return;
+  }
+  logger.info('TaskMenu: User selected "' + prompt.buttonPressed + '".');
+  switch (prompt.buttonPressed) {
+    case "Manage Overdue Tasks":
+      alert("You selected to manage overdue tasks. (Placeholder for ManageOverdueTasks action.)");
+      break;
+    case "Manage Deadlines":
+      alert("You selected to manage deadlines. (Placeholder for ManageDeadlines action.)");
+      break;
+    case "Schedule Tasks for Tomorrow":
+      alert("You selected to schedule tasks for tomorrow. (Placeholder for scheduling tasks.)");
+      break;
+    case "Some Other Custom Action":
+      alert("You selected another custom action. (Placeholder for non-Todoist or other expansions.)");
+      break;
+    default:
+      logger.warn("TaskMenu: Unexpected button pressed.");
+      context.cancel();
+      break;
+  }
+};
+
+// src/Actions/TaskActions/ActionRunner.ts
+function ActionRunner_run() {
+  openTaskMenu();
+}
+// src/Actions/TaskActions/ManageOverdueTasks.ts
+async function ManageOverdueTasks_run() {
+  someSharedHelperFunction();
+  logCustomMessage("Manage Overdue Items script started.");
+  try {
+    const credential = Credential.create("Todoist", "Todoist API Token");
+    credential.addPasswordField("apiToken", "API Token");
+    credential.authorize();
+    const TODOIST_API_TOKEN = credential.getValue("apiToken");
+    const todoist = Todoist.create();
+    todoist.token = TODOIST_API_TOKEN;
+    const tasks = await todoist.getTasks({ filter: "overdue" });
+    logCustomMessage("Retrieved " + tasks.length + " overdue tasks");
+    if (tasks.length === 0) {
+      alert("No overdue tasks found.");
+      logCustomMessage("No overdue tasks retrieved from Todoist.");
+      return;
+    }
+    const taskContents = tasks.map((task) => task.content);
+    const taskPrompt = new Prompt;
+    taskPrompt.title = "Overdue Tasks";
+    taskPrompt.message = "Select overdue tasks to reschedule or complete:";
+    taskPrompt.addSelect("selectedTasks", "Tasks", taskContents, [], true);
+    taskPrompt.addButton("OK");
+    if (taskPrompt.show() && taskPrompt.buttonPressed === "OK") {
+      const selectedTasks = tasks.filter((task) => taskPrompt.fieldValues["selectedTasks"].includes(task.content));
+      logCustomMessage("User selected " + selectedTasks.length + " tasks");
+      if (selectedTasks.length === 0) {
+        logCustomMessage("No tasks selected by the user.");
+        alert("No tasks selected.");
+        return;
+      }
+      const actionPrompt = new Prompt;
+      actionPrompt.title = "Select Action";
+      actionPrompt.message = "Choose an action for the selected tasks:";
+      actionPrompt.addButton("Reschedule to Today");
+      actionPrompt.addButton("Complete Tasks");
+      if (actionPrompt.show()) {
+        const userAction = actionPrompt.buttonPressed;
+        logCustomMessage("User selected action: " + userAction);
+        const tempDraft = Draft.create();
+        tempDraft.addTag("temp");
+        tempDraft.setTemplateTag("actionType", userAction);
+        tempDraft.setTemplateTag("selectedTasks", JSON.stringify(selectedTasks));
+        tempDraft.update();
+        alert("Placeholder: tasks would be processed in ExecutorLib_execute().");
+      } else {
+        logCustomMessage("User cancelled the action prompt.");
+      }
+    }
+  } catch (error) {
+    logCustomMessage("Error in Manage Overdue Tasks script: " + error, true);
+    alert("An error occurred: " + error);
+  }
+}

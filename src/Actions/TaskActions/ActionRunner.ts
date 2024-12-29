@@ -5,8 +5,8 @@
  * Link this to a Drafts action step or run it directly to open the task menu.
  */
 
-import { TaskMenu_run } from "./TaskMenu";
+import { openTaskMenu } from "./TaskMenu";
 
 export function ActionRunner_run(): void {
-  TaskMenu_run();
+  openTaskMenu();
 }

@@ -20,7 +20,7 @@ declare var Prompt: any;
  * TaskMenu_run
  * Displays a prompt with options for task management, logs user selection, and calls the appropriate code.
  */
-export function TaskMenu_run(): void {
+export const openTaskMenu = (): void => {
   // Use a fallback no-op logger if global.Logger is not defined
   const logger =
     typeof Logger !== "undefined"
@@ -83,4 +83,4 @@ export function TaskMenu_run(): void {
       context.cancel();
       break;
   }
-}
+};
