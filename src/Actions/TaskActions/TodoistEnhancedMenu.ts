@@ -109,9 +109,17 @@ function showAlert(title: string, message: string): void {
  */
 export async function runTodoistEnhancedMenu(): Promise<void> {
   // Provide your Todoist API token here or retrieve from credentials if desired
-  const TODOIST_API_TOKEN = "20fdade709c084c2e255e56e57d0e53370e8283e";
+  const credential = Credential.create(
+    "Todoist",
+    "Credentials for Todoist API."
+  );
+
+  credential.addTextField("token", "Todoist API Token");
+
+  credential.authorize();
+
   let todoist = Todoist.create();
-  todoist.token = TODOIST_API_TOKEN;
+  todoist.token = credential.getValue("Todoist");
 
   function getTodayDate(): string {
     let today = new Date();

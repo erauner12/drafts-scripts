@@ -990,9 +990,11 @@ function showAlert(title, message) {
 ${message}`);
 }
 async function runTodoistEnhancedMenu() {
-  const TODOIST_API_TOKEN = "20fdade709c084c2e255e56e57d0e53370e8283e";
+  const credential = Credential.create("Todoist", "Credentials for Todoist API.");
+  credential.addTextField("token", "Todoist API Token");
+  credential.authorize();
   let todoist = Todoist.create();
-  todoist.token = TODOIST_API_TOKEN;
+  todoist.token = credential.getValue("Todoist");
   function getTodayDate() {
     let today = new Date;
     return today.toISOString().split("T")[0];
