@@ -879,6 +879,67 @@ async function runTodoistEnhancedMenu() {
   script.complete();
 }
 // src/Actions/TaskActions/TodoistFlexibleFlow.ts
+async function selectTasksStep() {
+  log("selectTasksStep() started. Reading tasks from 'TasksForSelection' template tag.");
+  try {
+    const tasksData = draft.getTemplateTag("TasksForSelection") || "";
+    if (!tasksData) {
+      alert("No tasks found in 'TasksForSelection'. Did you run the previous step?");
+      script.complete();
+      return;
+    }
+    const tasks = JSON.parse(tasksData);
+    log(`Found ${tasks.length} tasks from template tag to select from.`);
+    if (tasks.length === 0) {
+      alert("No tasks to select from.");
+      script.complete();
+      return;
+    }
+    const taskTitles = tasks.map((t) => t.content);
+    const prompt = new Prompt;
+    prompt.title = "Select Tasks";
+    prompt.message = "Select one or more tasks to act on.";
+    prompt.addSelect("selectedTasks", "Tasks", taskTitles, [], true);
+    prompt.addButton("OK");
+    prompt.addButton("Cancel");
+    const userDidSelect = prompt.show();
+    if (!userDidSelect || prompt.buttonPressed !== "OK") {
+      log("User canceled or dismissed the task selection prompt.");
+      script.complete();
+      return;
+    }
+    const selectedContents = prompt.fieldValues["selectedTasks"] || [];
+    if (!Array.isArray(selectedContents) || selectedContents.length === 0) {
+      alert("No tasks selected.");
+      script.complete();
+      return;
+    }
+    const selectedTasks = tasks.filter((t) => selectedContents.includes(t.content));
+    const actionPrompt = new Prompt;
+    actionPrompt.title = "Select Action";
+    actionPrompt.message = "Choose an action for the selected tasks:";
+    actionPrompt.addButton("Reschedule to Today");
+    actionPrompt.addButton("Complete Tasks");
+    actionPrompt.addButton("Remove Due Date");
+    actionPrompt.addButton("Cancel");
+    const actionDidShow = actionPrompt.show();
+    if (!actionDidShow || actionPrompt.buttonPressed === "Cancel") {
+      log("User canceled or dismissed the action selection prompt.");
+      script.complete();
+      return;
+    }
+    const chosenAction = actionPrompt.buttonPressed;
+    log(`User selected action: "${chosenAction}"`);
+    draft.setTemplateTag("SelectedTasksData", JSON.stringify(selectedTasks));
+    draft.setTemplateTag("SelectedTasksAction", chosenAction);
+    alert("Tasks and action have been saved. Run the next step to execute them.");
+    log("selectTasksStep() completed. Template tags saved.");
+    script.complete();
+  } catch (error) {
+    log(`Error in selectTasksStep: ${error}`, true);
+    script.complete();
+  }
+}
 async function executeSelectedTasksStep() {
   log("executeSelectedTasksStep() invoked.");
   const todoist = getTodoistCredential();

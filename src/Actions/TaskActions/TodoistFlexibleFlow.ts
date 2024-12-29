@@ -1,17 +1,19 @@
 /**
  * TodoistFlexibleFlow.ts
  *
- * This file demonstrates a more flexible, two-step approach:
- *  1. selectTasksStep(): Prompt user to select which tasks to act on; store in template tags.
- *  2. executeSelectedTasksStep(): Retrieve stored tasks from template tags and perform updates.
+ * This file demonstrates a more flexible approach with separate steps:
  *
- * You can call these steps from separate Drafts actions or sequential steps:
- *   - Step #1: require("...").selectTasksStep()
- *   - Step #2: require("...").executeSelectedTasksStep()
+ * RECOMMENDED USAGE ORDER:
+ *  1) runTodoistEnhancedMenu() - fetch tasks from Todoist and store them in a Drafts template tag.
+ *  2) selectTasksStep()        - prompt the user to pick tasks from the fetched list, select an action, then store in another template tag.
+ *  3) executeSelectedTasksStep() - read those stored tasks and chosen action from the template tags and perform the Todoist updates.
+ *
+ * You can still call these steps independently if needed:
+ *   - Step #1: require("...").selectTasksStep()  [Legacy or custom usage]
+ *   - Step #2: require("...").executeSelectedTasksStep() [Legacy or custom usage]
  *
  * The user can specify a filter like "overdue", or "due:today", or "some other search"
- * to gather tasks from Todoist. Then the user is prompted to pick tasks, choose
- * an action, and the next script step can actually commit those changes in Todoist.
+ * to gather tasks from Todoist, or rely on the categories offered by runTodoistEnhancedMenu.
  */
 
 import { getTodoistCredential, log } from "../../helpers-utils";
