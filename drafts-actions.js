@@ -165,6 +165,13 @@ var getUrlFromClipboard = () => {
   const clipboard = getClipboard();
   return isUrl(clipboard) ? clipboard : "";
 };
+function logCustomMessage(msg, isError = false) {
+  if (isError) {
+    console.error(msg);
+  } else {
+    console.log(msg);
+  }
+}
 
 // src/actions-editing-copycutdelete.ts
 class CopyCutDelete {
@@ -784,8 +791,6 @@ var copyAllTagsToClipboard = () => {
 // src/Actions/TaskActions/ManageOverdueTasks.ts
 async function manageOverdueTasks() {
   logCustomMessage("manageOverdueTasks() invoked. Starting process.");
-  someSharedHelperFunction();
-  logCustomMessage("someSharedHelperFunction() executed. Proceeding.");
   try {
     logCustomMessage("Attempting to create and authorize Todoist credentials...");
     const credential = Credential.create("Todoist", "Todoist API Token");
@@ -799,6 +804,10 @@ async function manageOverdueTasks() {
     logCustomMessage("Fetching tasks filtered by 'overdue'...");
     const tasks = await todoist.getTasks({ filter: "overdue" });
     logCustomMessage("Retrieved " + tasks.length + " overdue tasks.");
+    if (tasks.length > 0) {
+      const allTaskContents = tasks.map((t) => t.id + ': "' + t.content + '"').join(", ");
+      logCustomMessage("Overdue tasks from Todoist: [" + allTaskContents + "]");
+    }
     if (tasks.length === 0) {
       alert("No overdue tasks found.");
       logCustomMessage("No overdue tasks retrieved from Todoist. Exiting script.");
@@ -831,6 +840,15 @@ async function manageOverdueTasks() {
       if (actionDidShow) {
         const userAction = actionPrompt.buttonPressed;
         logCustomMessage("User selected action: " + userAction);
+        if (userAction === "Reschedule to Today") {
+          logCustomMessage("The selected tasks will be rescheduled to today (pending actual code to do so).");
+        } else if (userAction === "Complete Tasks") {
+          logCustomMessage("The selected tasks will be marked complete (pending actual code to do so).");
+        }
+        if (selectedTasks.length > 0) {
+          const chosenTasks = selectedTasks.map((t) => t.id + ': "' + t.content + '"').join(", ");
+          logCustomMessage("Selected tasks: [" + chosenTasks + "]");
+        }
         const tempDraft = Draft.create();
         tempDraft.addTag("temp");
         tempDraft.setTemplateTag("actionType", userAction);
@@ -867,6 +885,7 @@ var openTaskMenu = () => {
     }
   };
   logger.info("TaskMenu: Starting menu prompt.");
+  logCustomMessage("openTaskMenu() invoked - presenting the menu.");
   const prompt = new Prompt;
   prompt.title = "Task Management Menu";
   prompt.message = "Select an option to manage your tasks:";
@@ -882,8 +901,10 @@ var openTaskMenu = () => {
     return;
   }
   logger.info('TaskMenu: User selected "' + prompt.buttonPressed + '".');
+  logCustomMessage("openTaskMenu() user pressed: " + prompt.buttonPressed);
   switch (prompt.buttonPressed) {
     case "Manage Overdue Tasks":
+      logCustomMessage("User selected Manage Overdue Tasks - calling manageOverdueTasks()");
       manageOverdueTasks();
       break;
     case "Manage Deadlines":

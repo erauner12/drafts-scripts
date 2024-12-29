@@ -1,3 +1,4 @@
+import { logCustomMessage } from "../../helpers-utils";
 import { manageOverdueTasks } from "./ManageOverdueTasks";
 
 /**
@@ -34,6 +35,7 @@ export const openTaskMenu = (): void => {
         };
 
   logger.info("TaskMenu: Starting menu prompt.");
+  logCustomMessage("openTaskMenu() invoked - presenting the menu.");
 
   const prompt = new Prompt();
   prompt.title = "Task Management Menu";
@@ -54,9 +56,13 @@ export const openTaskMenu = (): void => {
   }
 
   logger.info('TaskMenu: User selected "' + prompt.buttonPressed + '".');
+  logCustomMessage("openTaskMenu() user pressed: " + prompt.buttonPressed);
 
   switch (prompt.buttonPressed) {
     case "Manage Overdue Tasks":
+      logCustomMessage(
+        "User selected Manage Overdue Tasks - calling manageOverdueTasks()"
+      );
       manageOverdueTasks();
       break;
 

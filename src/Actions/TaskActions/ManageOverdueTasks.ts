@@ -5,8 +5,7 @@
  */
 
 // Declarations for unknown Drafts types and global functions
-declare function someSharedHelperFunction(): void;
-declare function logCustomMessage(msg: string, error?: boolean): void;
+import { logCustomMessage } from "../../helpers-utils";
 declare function alert(message: string): void;
 declare var Credential: any;
 declare var Todoist: any;
@@ -21,9 +20,6 @@ export async function manageOverdueTasks(): Promise<void> {
   logCustomMessage("manageOverdueTasks() invoked. Starting process.");
 
   // Some shared helper function used by other scripts. Possibly sets up environment or config.
-  someSharedHelperFunction();
-  logCustomMessage("someSharedHelperFunction() executed. Proceeding.");
-
   try {
     logCustomMessage(
       "Attempting to create and authorize Todoist credentials..."
@@ -41,6 +37,14 @@ export async function manageOverdueTasks(): Promise<void> {
     logCustomMessage("Fetching tasks filtered by 'overdue'...");
     const tasks = await todoist.getTasks({ filter: "overdue" });
     logCustomMessage("Retrieved " + tasks.length + " overdue tasks.");
+
+    // Log the raw content of each overdue task
+    if (tasks.length > 0) {
+      const allTaskContents = tasks
+        .map((t: any) => t.id + ': "' + t.content + '"')
+        .join(", ");
+      logCustomMessage("Overdue tasks from Todoist: [" + allTaskContents + "]");
+    }
 
     if (tasks.length === 0) {
       alert("No overdue tasks found.");
@@ -96,6 +100,25 @@ export async function manageOverdueTasks(): Promise<void> {
       if (actionDidShow) {
         const userAction = actionPrompt.buttonPressed;
         logCustomMessage("User selected action: " + userAction);
+
+        // Add more detail about the action to be performed
+        if (userAction === "Reschedule to Today") {
+          logCustomMessage(
+            "The selected tasks will be rescheduled to today (pending actual code to do so)."
+          );
+        } else if (userAction === "Complete Tasks") {
+          logCustomMessage(
+            "The selected tasks will be marked complete (pending actual code to do so)."
+          );
+        }
+
+        // List out the chosen tasks
+        if (selectedTasks.length > 0) {
+          const chosenTasks = selectedTasks
+            .map((t: any) => t.id + ': "' + t.content + '"')
+            .join(", ");
+          logCustomMessage("Selected tasks: [" + chosenTasks + "]");
+        }
 
         // Prepare the temporary draft to hold data
         // @ts-ignore
