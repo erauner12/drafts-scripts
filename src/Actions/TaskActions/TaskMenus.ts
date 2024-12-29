@@ -160,6 +160,10 @@ async function updateToToday(todoist: Todoist, task: TodoistTask) {
   timePrompt.title = "Set Time for Today";
   timePrompt.message = `How should this task be scheduled for today?`;
 
+  timePrompt.addButton("Early Morning (7 AM)");
+  timePrompt.addButton("Late Morning (10:30 AM)");
+  timePrompt.addButton("Afternoon (3 PM)");
+  timePrompt.addButton("Evening (8 PM)");
   timePrompt.addButton("Morning (9 AM)");
   timePrompt.addButton("Noon (12 PM)");
   timePrompt.addButton("No Specific Time");
@@ -170,6 +174,18 @@ async function updateToToday(todoist: Todoist, task: TodoistTask) {
   let updateOptions: any = { content: task.content };
 
   switch (timePrompt.buttonPressed) {
+    case "Early Morning (7 AM)":
+      updateOptions.due_string = "today at 7am";
+      break;
+    case "Late Morning (10:30 AM)":
+      updateOptions.due_string = "today at 10:30am";
+      break;
+    case "Afternoon (3 PM)":
+      updateOptions.due_string = "today at 3pm";
+      break;
+    case "Evening (8 PM)":
+      updateOptions.due_string = "today at 8pm";
+      break;
     case "Morning (9 AM)":
       updateOptions.due_string = "today at 9am";
       break;
@@ -201,6 +217,10 @@ async function moveToFuture(todoist: Todoist, task: TodoistTask) {
   datePrompt.title = "Move to Future Date";
   datePrompt.message = "When should this task be due?";
 
+  datePrompt.addButton("In Two Days");
+  datePrompt.addButton("In Three Days");
+  datePrompt.addButton("In One Week");
+  datePrompt.addButton("In Two Weeks");
   datePrompt.addButton("Tomorrow");
   datePrompt.addButton("Next Week");
   datePrompt.addButton("Custom Date");
@@ -210,6 +230,34 @@ async function moveToFuture(todoist: Todoist, task: TodoistTask) {
   let updateOptions: any = { content: task.content };
 
   switch (datePrompt.buttonPressed) {
+    case "In Two Days":
+      {
+        let twoDays = new Date();
+        twoDays.setDate(twoDays.getDate() + 2);
+        updateOptions.due_date = twoDays.toISOString().split("T")[0];
+      }
+      break;
+    case "In Three Days":
+      {
+        let threeDays = new Date();
+        threeDays.setDate(threeDays.getDate() + 3);
+        updateOptions.due_date = threeDays.toISOString().split("T")[0];
+      }
+      break;
+    case "In One Week":
+      {
+        let oneWeek = new Date();
+        oneWeek.setDate(oneWeek.getDate() + 7);
+        updateOptions.due_date = oneWeek.toISOString().split("T")[0];
+      }
+      break;
+    case "In Two Weeks":
+      {
+        let twoWeeks = new Date();
+        twoWeeks.setDate(twoWeeks.getDate() + 14);
+        updateOptions.due_date = twoWeeks.toISOString().split("T")[0];
+      }
+      break;
     case "Tomorrow":
       updateOptions.due_string = "tomorrow";
       break;
@@ -217,13 +265,15 @@ async function moveToFuture(todoist: Todoist, task: TodoistTask) {
       updateOptions.due_string = "next monday";
       break;
     case "Custom Date":
-      let customPrompt = new Prompt();
-      customPrompt.addDatePicker("date", "Select Date", new Date(), {
-        mode: "date",
-      });
-      if (customPrompt.show()) {
-        let selectedDate: Date = customPrompt.fieldValues["date"];
-        updateOptions.due_date = selectedDate.toISOString().split("T")[0];
+      {
+        let customPrompt = new Prompt();
+        customPrompt.addDatePicker("date", "Select Date", new Date(), {
+          mode: "date",
+        });
+        if (customPrompt.show()) {
+          let selectedDate: Date = customPrompt.fieldValues["date"];
+          updateOptions.due_date = selectedDate.toISOString().split("T")[0];
+        }
       }
       break;
   }
