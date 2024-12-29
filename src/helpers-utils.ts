@@ -63,4 +63,17 @@ export function showAlert(title: string, message: string): void {
   alert(`${title}\n\n${message}`);
 }
 
+/**
+ * Gets or creates a Todoist credential instance.
+ * @returns {Todoist} A configured Todoist instance with the user's API token
+ */
+export function getTodoistCredential(): Todoist {
+  const credential = Credential.create("Todoist", "Todoist API access");
+  credential.addPasswordField("token", "API Token");
+  credential.authorize();
+
+  const todoist = Todoist.create();
+  todoist.token = credential.getValue("token");
+  return todoist;
+}
 

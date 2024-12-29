@@ -176,6 +176,14 @@ function showAlert(title, message) {
 
 ${message}`);
 }
+function getTodoistCredential() {
+  const credential = Credential.create("Todoist", "Todoist API access");
+  credential.addPasswordField("token", "API Token");
+  credential.authorize();
+  const todoist = Todoist.create();
+  todoist.token = credential.getValue("token");
+  return todoist;
+}
 
 // src/actions-editing-copycutdelete.ts
 class CopyCutDelete {
@@ -1450,9 +1458,7 @@ Select new deadline:`;
 async function selectTasksStep(filter) {
   log(`selectTasksStep() started. Filter used: "${filter}"`);
   try {
-    const TODOIST_API_TOKEN = "20fdade709c084c2e255e56e57d0e53370e8283e";
-    const todoist = Todoist.create();
-    todoist.token = TODOIST_API_TOKEN;
+    const todoist = getTodoistCredential();
     log(`Fetching tasks with filter: "${filter}"...`);
     const tasks = await todoist.getTasks({ filter });
     log(`Found ${tasks.length} tasks with filter: "${filter}"`);
@@ -1508,9 +1514,7 @@ async function selectTasksStep(filter) {
 }
 async function executeSelectedTasksStep() {
   log("executeSelectedTasksStep() invoked.");
-  const TODOIST_API_TOKEN = "20fdade709c084c2e255e56e57d0e53370e8283e";
-  const todoist = Todoist.create();
-  todoist.token = TODOIST_API_TOKEN;
+  const todoist = getTodoistCredential();
   try {
     const selectedTasksData = draft.getTemplateTag("SelectedTasksData") || "";
     const selectedAction = draft.getTemplateTag("SelectedTasksAction") || "";

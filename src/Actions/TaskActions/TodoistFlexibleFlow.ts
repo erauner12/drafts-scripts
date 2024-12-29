@@ -14,7 +14,7 @@
  * an action, and the next script step can actually commit those changes in Todoist.
  */
 
-import { log } from "../../helpers-utils";
+import { getTodoistCredential, log } from "../../helpers-utils";
 
 declare function alert(message: string): void;
 declare var console: { log(msg: string): void };
@@ -88,13 +88,8 @@ export async function selectTasksStep(filter: string): Promise<void> {
   log(`selectTasksStep() started. Filter used: "${filter}"`);
 
   try {
-    // Provide your Todoist API token
-    const credential = Credential.create("Todoist", "Todoist API access");
-    credential.addPasswordField("token", "API Token");
-    credential.authorize();
-
-    const todoist = Todoist.create();
-    todoist.token = credential.getValue("Todoist");
+    // Get Todoist instance with credentials
+    const todoist = getTodoistCredential();
 
     // 1) Retrieve tasks from Todoist using the filter
     log(`Fetching tasks with filter: "${filter}"...`);
@@ -187,13 +182,7 @@ export async function selectTasksStep(filter: string): Promise<void> {
 export async function executeSelectedTasksStep(): Promise<void> {
   log("executeSelectedTasksStep() invoked.");
 
-  // Provide your Todoist API token again (or retrieve from credential)
-  const credential = Credential.create("Todoist", "Todoist API access");
-  credential.addPasswordField("token", "API Token");
-  credential.authorize();
-
-  const todoist = Todoist.create();
-  todoist.token = credential.getValue("token");
+  const todoist = getTodoistCredential();
 
   try {
     const selectedTasksData = draft.getTemplateTag("SelectedTasksData") || "";
