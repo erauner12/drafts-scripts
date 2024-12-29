@@ -1,4 +1,5 @@
 import { log, showAlert } from "../../helpers-utils";
+import { pickTimeForToday } from "./DateTimePrompts";
 
 // You can import and declare the needed dependencies, similarly to the existing code.
 declare var script: {
@@ -97,7 +98,9 @@ export async function handleOverdueTasks(
  * Tasks with deadlines: specifically for tasks that have a 'deadline' property set for today or tomorrow.
  * (Concept here is from the original 'Manage Deadline Tasks', but you can adjust as needed.)
  */
-export async function handleDeadlineTasks(todoist: Todoist): Promise<TodoistTask[]> {
+export async function handleDeadlineTasks(
+  todoist: Todoist
+): Promise<TodoistTask[]> {
   log("Fetching tasks with deadlines for today or tomorrow...");
   let response = await todoist.request({
     url: "https://api.todoist.com/rest/v2/tasks",
@@ -134,10 +137,12 @@ export async function handleDeadlineTasks(todoist: Todoist): Promise<TodoistTask
  * This is similar to "handleAssignTimeAndDuration" in the old code
  * but now we focus only on tasks lacking a 'due.datetime'.
  */
-export async function handleNoTimeTasks(todoist: Todoist): Promise<TodoistTask[]> {
+export async function handleNoTimeTasks(
+  todoist: Todoist
+): Promise<TodoistTask[]> {
   log("Fetching tasks due today with no time set...");
   let allTodayTasks = await todoist.getTasks({ filter: "due: today" });
-  let noTimeTasks = allTodayTasks.filter(t => !(t.due?.datetime));
+  let noTimeTasks = allTodayTasks.filter((t) => !t.due?.datetime);
   log(`Found ${noTimeTasks.length} tasks due today with no time.`);
   return noTimeTasks;
 }
@@ -146,138 +151,35 @@ export async function handleNoTimeTasks(todoist: Todoist): Promise<TodoistTask[]
  * For tasks due today that have no 'duration' assigned.
  * This is somewhat like the old handleAssignDuration but specialized.
  */
-export async function handleNoDurationTasks(todoist: Todoist): Promise<TodoistTask[]> {
+export async function handleNoDurationTasks(
+  todoist: Todoist
+): Promise<TodoistTask[]> {
   log("Fetching tasks due today with no duration...");
   let allTodayTasks = await todoist.getTasks({ filter: "due: today" });
-  let noDurationTasks = allTodayTasks.filter(t => !t.duration);
+  let noDurationTasks = allTodayTasks.filter((t) => !t.duration);
   log(`Found ${noDurationTasks.length} tasks due today with no duration.`);
   return noDurationTasks;
 }
 
 // INTERNAL HELPER FUNCTIONS
 async function updateToToday(todoist: Todoist, task: TodoistTask) {
-  let timePrompt = new Prompt();
-  timePrompt.title = "Set Time for Today";
-  timePrompt.message = `How should this task be scheduled for today?`;
-
-  timePrompt.addButton("Early Morning (7 AM)");
-  timePrompt.addButton("Late Morning (10:30 AM)");
-  timePrompt.addButton("Afternoon (3 PM)");
-  timePrompt.addButton("Evening (8 PM)");
-  timePrompt.addButton("Morning (9 AM)");
-  timePrompt.addButton("Noon (12 PM)");
-  timePrompt.addButton("No Specific Time");
-  timePrompt.addButton("Custom Time");
-
-  if (!timePrompt.show()) return;
-
   let updateOptions: any = { content: task.content };
 
-  switch (timePrompt.buttonPressed) {
-    case "Early Morning (7 AM)":
-      updateOptions.due_string = "today at 7am";
-      break;
-    case "Late Morning (10:30 AM)":
-      updateOptions.due_string = "today at 10:30am";
-      break;
-    case "Afternoon (3 PM)":
-      updateOptions.due_string = "today at 3pm";
-      break;
-    case "Evening (8 PM)":
-      updateOptions.due_string = "today at 8pm";
-      break;
-    case "Morning (9 AM)":
-      updateOptions.due_string = "today at 9am";
-      break;
-    case "Noon (12 PM)":
-      updateOptions.due_string = "today at 12pm";
-      break;
-    case "No Specific Time":
-      updateOptions.due_string = "today";
-      break;
-    case "Custom Time":
-      let customPrompt = new Prompt();
-      customPrompt.addDatePicker("time", "Select Time", new Date(), {
-        mode: "time",
-      });
-      if (customPrompt.show()) {
-        let selectedTime: Date = customPrompt.fieldValues["time"];
-        let hours = selectedTime.getHours().toString().padStart(2, "0");
-        let minutes = selectedTime.getMinutes().toString().padStart(2, "0");
-        updateOptions.due_string = `today at ${hours}:${minutes}`;
-      }
-      break;
-  }
+  const chosenTime = pickTimeForToday();
+  if (!chosenTime) return;
 
+  updateOptions.due_string = chosenTime;
   await todoist.updateTask(task.id, updateOptions);
 }
 
 async function moveToFuture(todoist: Todoist, task: TodoistTask) {
-  let datePrompt = new Prompt();
-  datePrompt.title = "Move to Future Date";
-  datePrompt.message = "When should this task be due?";
-
-  datePrompt.addButton("In Two Days");
-  datePrompt.addButton("In Three Days");
-  datePrompt.addButton("In One Week");
-  datePrompt.addButton("In Two Weeks");
-  datePrompt.addButton("Tomorrow");
-  datePrompt.addButton("Next Week");
-  datePrompt.addButton("Custom Date");
-
-  if (!datePrompt.show()) return;
-
+  const { pickFutureDate } = await import("./DateTimePrompts");
   let updateOptions: any = { content: task.content };
 
-  switch (datePrompt.buttonPressed) {
-    case "In Two Days":
-      {
-        let twoDays = new Date();
-        twoDays.setDate(twoDays.getDate() + 2);
-        updateOptions.due_date = twoDays.toISOString().split("T")[0];
-      }
-      break;
-    case "In Three Days":
-      {
-        let threeDays = new Date();
-        threeDays.setDate(threeDays.getDate() + 3);
-        updateOptions.due_date = threeDays.toISOString().split("T")[0];
-      }
-      break;
-    case "In One Week":
-      {
-        let oneWeek = new Date();
-        oneWeek.setDate(oneWeek.getDate() + 7);
-        updateOptions.due_date = oneWeek.toISOString().split("T")[0];
-      }
-      break;
-    case "In Two Weeks":
-      {
-        let twoWeeks = new Date();
-        twoWeeks.setDate(twoWeeks.getDate() + 14);
-        updateOptions.due_date = twoWeeks.toISOString().split("T")[0];
-      }
-      break;
-    case "Tomorrow":
-      updateOptions.due_string = "tomorrow";
-      break;
-    case "Next Week":
-      updateOptions.due_string = "next monday";
-      break;
-    case "Custom Date":
-      {
-        let customPrompt = new Prompt();
-        customPrompt.addDatePicker("date", "Select Date", new Date(), {
-          mode: "date",
-        });
-        if (customPrompt.show()) {
-          let selectedDate: Date = customPrompt.fieldValues["date"];
-          updateOptions.due_date = selectedDate.toISOString().split("T")[0];
-        }
-      }
-      break;
-  }
+  const dateChoice = pickFutureDate();
+  if (!dateChoice) return;
 
+  Object.assign(updateOptions, dateChoice);
   await todoist.updateTask(task.id, updateOptions);
 }
 

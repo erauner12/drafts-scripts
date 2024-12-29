@@ -79,3 +79,21 @@ export {
   selectTasksStep,
 } from "./Actions/TaskActions/TodoistFlexibleFlow";
 
+
+/**
+ * Re-export date/time prompt utility functions:
+ *
+ * pickTimeForToday():
+ *   Prompts the user to select a time (morning, noon, evening, or custom) and returns
+ *   a string describing how the task should be scheduled for today (e.g., "today at 9am").
+ *
+ * pickFutureDate():
+ *   Prompts the user to select a date in the future (or tomorrow, next week, etc.)
+ *   and returns an object containing either { due_string: string } or { due_date: string },
+ *   depending on the user selection.
+ */
+export {
+  pickFutureDate,
+  pickTimeForToday,
+} from "./Actions/TaskActions/DateTimePrompts";
+

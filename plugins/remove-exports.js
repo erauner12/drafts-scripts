@@ -6,9 +6,19 @@ export const removeExportsPlugin = (content) => {
   const exportIndex = content.indexOf("export");
   const containsExport = exportIndex !== -1;
 
+  console.log("[removeExportsPlugin] Content length:", content.length);
+  console.log("[removeExportsPlugin] exportIndex:", exportIndex);
+
   if (containsExport) {
-    // text before the `export` keyword
-    return content.substring(0, exportIndex);
+    const truncated = content.substring(0, exportIndex);
+    console.log(
+      "[removeExportsPlugin] Removing exports from index:",
+      exportIndex
+    );
+    console.log("[removeExportsPlugin] New content length:", truncated.length);
+    return truncated;
   }
+
+  console.log("[removeExportsPlugin] No exports found in this content.");
   return content;
 };
