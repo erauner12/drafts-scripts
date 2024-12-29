@@ -16,7 +16,7 @@ declare var Prompt: any;
 /**
  * Runs the Manage Overdue Tasks action.
  */
-export async function ManageOverdueTasks_run(): Promise<void> {
+export async function manageOverdueTasks(): Promise<void> {
   someSharedHelperFunction();
   logCustomMessage("Manage Overdue Items script started.");
 
@@ -103,7 +103,7 @@ export async function ManageOverdueTasks_run(): Promise<void> {
 /**
  * Example extra placeholder function
  */
-export function ManageOverdueTasks_aux(): void {
+export function manageOverdueTasksAux(): void {
   // Example placeholder
   logCustomMessage("ManageOverdueTasks_aux() called!");
 }

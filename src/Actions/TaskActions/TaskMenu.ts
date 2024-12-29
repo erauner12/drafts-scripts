@@ -55,9 +55,7 @@ export const openTaskMenu = (): void => {
 
   switch (prompt.buttonPressed) {
     case "Manage Overdue Tasks":
-      alert(
-        "You selected to manage overdue tasks. (Placeholder for ManageOverdueTasks action.)"
-      );
+      manageOverdueTasks();
       break;
 
     case "Manage Deadlines":
@@ -84,3 +82,11 @@ export const openTaskMenu = (): void => {
       break;
   }
 };
+
+/**
+ * Placeholder for an action-specific script to manage overdue tasks.
+ */
+function manageOverdueTasks() {
+  throw new Error("Function not implemented.");
+}
+

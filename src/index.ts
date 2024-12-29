@@ -69,8 +69,14 @@ export {
 
 export { copyAllTagsToClipboard } from "./actions-shortcuts";
 
+export { actionRunner } from "./Actions/TaskActions/ActionRunner";
 
-export { ActionRunner_run } from "./Actions/TaskActions/ActionRunner";
-export { ManageOverdueTasks_run } from "./Actions/TaskActions/ManageOverdueTasks";
+
+export {
+  manageOverdueTasks,
+  manageOverdueTasksAux,
+} from "./Actions/TaskActions/ManageOverdueTasks";
+
+
 export { openTaskMenu } from "./Actions/TaskActions/TaskMenu";
 

@@ -7,6 +7,6 @@
 
 import { openTaskMenu } from "./TaskMenu";
 
-export function ActionRunner_run(): void {
+export function actionRunner(): void {
   openTaskMenu();
 }
