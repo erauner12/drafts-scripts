@@ -13,10 +13,8 @@
  *        runTodoistEnhancedMenu();
  */
 
-declare function alert(message: string): void;
-declare var console: {
-  log(msg: string): void;
-};
+import { log, showAlert } from "../../helpers-utils";
+
 declare var script: {
   complete(): void;
 };
@@ -89,17 +87,6 @@ declare class Todoist {
     parameters?: { [key: string]: string };
     data?: any;
   }): Promise<HTTPResponse>;
-}
-
-function log(message: string, critical: boolean = false) {
-  console.log(message);
-  if (critical) {
-    alert(message);
-  }
-}
-
-function showAlert(title: string, message: string): void {
-  alert(`${title}\n\n${message}`);
 }
 
 /**
@@ -979,3 +966,4 @@ export async function runTodoistEnhancedMenu(): Promise<void> {
     return false;
   }
 }
+

@@ -165,12 +165,16 @@ var getUrlFromClipboard = () => {
   const clipboard = getClipboard();
   return isUrl(clipboard) ? clipboard : "";
 };
-function logCustomMessage(msg, isError = false) {
-  if (isError) {
-    console.error(msg);
-  } else {
-    console.log(msg);
+function log(message, critical = false) {
+  console.log(message);
+  if (critical) {
+    alert(message);
   }
+}
+function showAlert(title, message) {
+  alert(`${title}
+
+${message}`);
 }
 
 // src/actions-editing-copycutdelete.ts
@@ -788,207 +792,7 @@ var copyAllTagsToClipboard = () => {
 `);
   copyToClipboard(sortedTags);
 };
-// src/Actions/TaskActions/ManageOverdueTasks.ts
-async function manageOverdueTasks() {
-  logCustomMessage("manageOverdueTasks() invoked. Starting process.");
-  try {
-    logCustomMessage("Attempting to create and authorize Todoist credentials...");
-    const credential = Credential.create("Todoist", "Todoist API Token");
-    credential.addPasswordField("apiToken", "API Token");
-    credential.authorize();
-    logCustomMessage("Credentials authorized successfully.");
-    logCustomMessage("System date/time is: " + new Date().toString());
-    logCustomMessage("UTC date/time is: " + new Date().toUTCString());
-    logCustomMessage("Timezone offset (minutes): " + new Date().getTimezoneOffset().toString());
-    const TODOIST_API_TOKEN = credential.getValue("apiToken");
-    const todoist = Todoist.create();
-    logCustomMessage("Todoist API token set.");
-    logCustomMessage("Fetching tasks filtered by 'overdue'...");
-    const tasks = await todoist.getTasks({ filter: "overdue" });
-    logCustomMessage("Retrieved " + tasks.length + " overdue tasks.");
-    if (tasks.length > 0) {
-      const allTaskContents = tasks.map((t) => t.id + ': "' + t.content + '"').join(", ");
-      logCustomMessage("Overdue tasks from Todoist: [" + allTaskContents + "]");
-    }
-    if (tasks.length === 0) {
-      alert("No overdue tasks found.");
-      logCustomMessage("No overdue tasks retrieved from Todoist. Exiting script.");
-      return;
-    }
-    const taskContents = tasks.map((task) => task.content);
-    logCustomMessage("Creating prompt for user to select overdue tasks...");
-    const taskPrompt = new Prompt;
-    taskPrompt.title = "Overdue Tasks";
-    taskPrompt.message = "Select overdue tasks to reschedule or complete:";
-    taskPrompt.addSelect("selectedTasks", "Tasks", taskContents, [], true);
-    taskPrompt.addButton("OK");
-    const didShow = taskPrompt.show();
-    logCustomMessage("Task selection prompt displayed: " + (didShow ? "User responded" : "User dismissed/canceled"));
-    if (didShow && taskPrompt.buttonPressed === "OK") {
-      const selectedTasks = tasks.filter((task) => taskPrompt.fieldValues["selectedTasks"].includes(task.content));
-      logCustomMessage("User selected " + selectedTasks.length + " tasks for processing.");
-      if (selectedTasks.length === 0) {
-        logCustomMessage("No tasks selected by the user. Exiting script.");
-        alert("No tasks selected.");
-        return;
-      }
-      const actionPrompt = new Prompt;
-      actionPrompt.title = "Select Action";
-      actionPrompt.message = "Choose an action for the selected tasks:";
-      actionPrompt.addButton("Reschedule to Today");
-      actionPrompt.addButton("Complete Tasks");
-      const actionDidShow = actionPrompt.show();
-      logCustomMessage("Action prompt displayed: " + (actionDidShow ? "User responded" : "User dismissed/canceled"));
-      if (actionDidShow) {
-        const userAction = actionPrompt.buttonPressed;
-        logCustomMessage("User selected action: " + userAction);
-        draft.setTemplateTag("OverdueTasksData", JSON.stringify(selectedTasks));
-        draft.setTemplateTag("OverdueTasksAction", userAction);
-        alert("Selections saved. Please run the next step to execute changes.");
-        logCustomMessage("manageOverdueTasks() completed user prompt logic successfully.");
-      } else {
-        logCustomMessage("User cancelled the action prompt. Exiting script.");
-      }
-    } else {
-      logCustomMessage("User cancelled or dismissed the overdue tasks prompt. Exiting script.");
-    }
-  } catch (error) {
-    logCustomMessage("Error in Manage Overdue Tasks script: " + error, true);
-    alert("An error occurred: " + error);
-  } finally {
-    logCustomMessage("manageOverdueTasks() end of script reached. Finalizing.");
-  }
-}
-function manageOverdueTasksAux() {
-  logCustomMessage("manageOverdueTasksAux() called. Additional logic could go here.");
-}
-
-// src/Actions/TaskActions/TaskMenu.ts
-var openTaskMenu = () => {
-  logCustomMessage("TaskMenu: Starting menu prompt.");
-  logCustomMessage("openTaskMenu() invoked - presenting the menu.");
-  const prompt = new Prompt;
-  prompt.title = "Task Management Menu";
-  prompt.message = "Select an option to manage your tasks:";
-  prompt.addButton("Manage Overdue Tasks");
-  prompt.addButton("Manage Deadlines");
-  prompt.addButton("Schedule Tasks for Tomorrow");
-  prompt.addButton("Some Other Custom Action");
-  prompt.addButton("Cancel");
-  const didSelect = prompt.show();
-  if (!didSelect || prompt.buttonPressed === "Cancel") {
-    logCustomMessage("TaskMenu: User canceled or dismissed the prompt.");
-    context.cancel("User canceled task menu");
-    return;
-  }
-  logCustomMessage('TaskMenu: User selected "' + prompt.buttonPressed + '".');
-  logCustomMessage("openTaskMenu() user pressed: " + prompt.buttonPressed);
-  switch (prompt.buttonPressed) {
-    case "Manage Overdue Tasks":
-      logCustomMessage("User selected Manage Overdue Tasks - calling manageOverdueTasks()");
-      manageOverdueTasks();
-      break;
-    case "Manage Deadlines":
-      alert("You selected to manage deadlines. (Placeholder for ManageDeadlines action.)");
-      break;
-    case "Schedule Tasks for Tomorrow":
-      alert("You selected to schedule tasks for tomorrow. (Placeholder for scheduling tasks.)");
-      break;
-    case "Some Other Custom Action":
-      alert("You selected another custom action. (Placeholder for non-Todoist or other expansions.)");
-      break;
-    default:
-      logCustomMessage("TaskMenu: Unexpected button pressed.");
-      context.cancel("Unexpected button selection in task menu");
-      break;
-  }
-};
-
-// src/Actions/TaskActions/ActionRunner.ts
-function actionRunner() {
-  openTaskMenu();
-}
-// src/Actions/TaskActions/ManageOverdueTasksExec.ts
-async function rescheduleTasksToToday(todoistClient, tasks) {
-  for (const task of tasks) {
-    try {
-      logCustomMessage("Rescheduling task " + task.id + " to today...");
-      await todoistClient.updateTask(task.id, {
-        due_string: "today at 23:59",
-        due_lang: "en"
-      });
-      logCustomMessage("Task " + task.id + " successfully rescheduled to today.");
-      const updatedTask = await todoistClient.getTask(task.id);
-      if (!updatedTask?.due) {
-        logCustomMessage(`Task ${task.id} has no due date after update. Something is off.`, true);
-      } else {
-        logCustomMessage(`Task ${task.id} is now due on: ${updatedTask.due.date}`);
-      }
-    } catch (error) {
-      logCustomMessage("Error rescheduling task " + task.id + ": " + String(error), true);
-      alert("Error rescheduling task " + task.id + ": " + String(error));
-    }
-  }
-}
-async function completeTasks(todoistClient, tasks) {
-  for (const task of tasks) {
-    try {
-      logCustomMessage("Completing task " + task.id + "...");
-      await todoistClient.closeTask(task.id);
-      logCustomMessage("Task " + task.id + " has been marked complete.");
-    } catch (error) {
-      logCustomMessage("Error completing task " + task.id + ": " + String(error), true);
-      alert("Error completing task " + task.id + ": " + String(error));
-    }
-  }
-}
-async function executeOverdueTasksAction() {
-  logCustomMessage("executeOverdueTasksAction() invoked. Starting execution step.");
-  try {
-    const selectedTasksData = draft.getTemplateTag("OverdueTasksData") || "";
-    const selectedAction = draft.getTemplateTag("OverdueTasksAction") || "";
-    if (!selectedTasksData || !selectedAction) {
-      logCustomMessage("No stored tasks or action found in template tags. Exiting.");
-      alert("No overdue tasks or action found. Make sure you ran Step 1 first.");
-      return;
-    }
-    const selectedTasks = JSON.parse(selectedTasksData);
-    logCustomMessage("Re-authorizing Todoist credentials...");
-    const credential = Credential.create("Todoist", "Todoist API Token");
-    credential.addPasswordField("apiToken", "API Token");
-    credential.authorize();
-    logCustomMessage("Credentials authorized successfully.");
-    const TODOIST_API_TOKEN = credential.getValue("apiToken");
-    const todoist = Todoist.create();
-    todoist.token = TODOIST_API_TOKEN;
-    logCustomMessage("Todoist API token set.");
-    if (selectedAction === "Reschedule to Today") {
-      await rescheduleTasksToToday(todoist, selectedTasks);
-    } else if (selectedAction === "Complete Tasks") {
-      await completeTasks(todoist, selectedTasks);
-    } else {
-      logCustomMessage(`Unknown action: ${selectedAction}`, true);
-      alert("Unknown action selected: " + selectedAction);
-    }
-    alert("Tasks processed successfully!");
-    logCustomMessage("executeOverdueTasksAction() finished successfully.");
-  } catch (error) {
-    logCustomMessage("Error in executeOverdueTasksAction: " + error, true);
-    alert("An error occurred: " + error);
-  }
-}
 // src/Actions/TaskActions/TodoistEnhancedMenu.ts
-function log(message, critical = false) {
-  console.log(message);
-  if (critical) {
-    alert(message);
-  }
-}
-function showAlert(title, message) {
-  alert(`${title}
-
-${message}`);
-}
 async function runTodoistEnhancedMenu() {
   const credential = Credential.create("Todoist", "Credentials for Todoist API.");
   credential.addTextField("token", "Todoist API Token");
@@ -1643,21 +1447,15 @@ Select new deadline:`;
   }
 }
 // src/Actions/TaskActions/TodoistFlexibleFlow.ts
-function log2(msg, critical = false) {
-  console.log(msg);
-  if (critical) {
-    alert(msg);
-  }
-}
 async function selectTasksStep(filter) {
-  log2(`selectTasksStep() started. Filter used: "${filter}"`);
+  log(`selectTasksStep() started. Filter used: "${filter}"`);
   try {
     const TODOIST_API_TOKEN = "20fdade709c084c2e255e56e57d0e53370e8283e";
     const todoist = Todoist.create();
     todoist.token = TODOIST_API_TOKEN;
-    log2(`Fetching tasks with filter: "${filter}"...`);
+    log(`Fetching tasks with filter: "${filter}"...`);
     const tasks = await todoist.getTasks({ filter });
-    log2(`Found ${tasks.length} tasks with filter: "${filter}"`);
+    log(`Found ${tasks.length} tasks with filter: "${filter}"`);
     if (tasks.length === 0) {
       alert(`No tasks found with filter: ${filter}`);
       script.complete();
@@ -1672,7 +1470,7 @@ async function selectTasksStep(filter) {
     prompt.addButton("Cancel");
     const userDidSelect = prompt.show();
     if (!userDidSelect || prompt.buttonPressed !== "OK") {
-      log2("User canceled or dismissed the task selection prompt.");
+      log("User canceled or dismissed the task selection prompt.");
       script.complete();
       return;
     }
@@ -1692,24 +1490,24 @@ async function selectTasksStep(filter) {
     actionPrompt.addButton("Cancel");
     const actionDidShow = actionPrompt.show();
     if (!actionDidShow || actionPrompt.buttonPressed === "Cancel") {
-      log2("User canceled or dismissed the action selection prompt.");
+      log("User canceled or dismissed the action selection prompt.");
       script.complete();
       return;
     }
     const chosenAction = actionPrompt.buttonPressed;
-    log2(`User selected action: "${chosenAction}"`);
+    log(`User selected action: "${chosenAction}"`);
     draft.setTemplateTag("SelectedTasksData", JSON.stringify(selectedTasks));
     draft.setTemplateTag("SelectedTasksAction", chosenAction);
     alert("Tasks and action have been saved. Run the next step to execute them.");
-    log2("selectTasksStep() completed. Template tags saved.");
+    log("selectTasksStep() completed. Template tags saved.");
     script.complete();
   } catch (error) {
-    log2(`Error in selectTasksStep: ${error}`, true);
+    log(`Error in selectTasksStep: ${error}`, true);
     script.complete();
   }
 }
 async function executeSelectedTasksStep() {
-  log2("executeSelectedTasksStep() invoked.");
+  log("executeSelectedTasksStep() invoked.");
   const TODOIST_API_TOKEN = "20fdade709c084c2e255e56e57d0e53370e8283e";
   const todoist = Todoist.create();
   todoist.token = TODOIST_API_TOKEN;
@@ -1718,12 +1516,12 @@ async function executeSelectedTasksStep() {
     const selectedAction = draft.getTemplateTag("SelectedTasksAction") || "";
     if (!selectedTasksData || !selectedAction) {
       alert("No stored tasks or action found. Did you run the selection step?");
-      log2("No tasks or action in template tags. Exiting.");
+      log("No tasks or action in template tags. Exiting.");
       script.complete();
       return;
     }
     const tasksToProcess = JSON.parse(selectedTasksData);
-    log2(`Retrieved ${tasksToProcess.length} tasks to process with action "${selectedAction}"`);
+    log(`Retrieved ${tasksToProcess.length} tasks to process with action "${selectedAction}"`);
     if (tasksToProcess.length === 0) {
       alert("No tasks found in selection data.");
       script.complete();
@@ -1731,69 +1529,69 @@ async function executeSelectedTasksStep() {
     }
     switch (selectedAction) {
       case "Reschedule to Today":
-        await rescheduleTasksToToday2(todoist, tasksToProcess);
+        await rescheduleTasksToToday(todoist, tasksToProcess);
         break;
       case "Complete Tasks":
-        await completeTasks2(todoist, tasksToProcess);
+        await completeTasks(todoist, tasksToProcess);
         break;
       case "Remove Due Date":
         await removeTasksDueDate(todoist, tasksToProcess);
         break;
       default:
         alert(`Unknown action: ${selectedAction}`);
-        log2(`Unknown action selected: "${selectedAction}"`, true);
+        log(`Unknown action selected: "${selectedAction}"`, true);
         script.complete();
         return;
     }
     alert("Execution step completed successfully!");
     script.complete();
   } catch (error) {
-    log2(`Error in executeSelectedTasksStep: ${error}`, true);
+    log(`Error in executeSelectedTasksStep: ${error}`, true);
     script.complete();
   }
 }
-async function rescheduleTasksToToday2(todoist, tasks) {
+async function rescheduleTasksToToday(todoist, tasks) {
   for (const task of tasks) {
     try {
-      log2(`Rescheduling task "${task.content}" (id: ${task.id}) to today.`);
+      log(`Rescheduling task "${task.content}" (id: ${task.id}) to today.`);
       const updateSuccess = await todoist.updateTask(task.id, {
         content: task.content,
         due_string: "today"
       });
       if (!updateSuccess) {
-        log2(`Failed to reschedule task id: ${task.id} - ${todoist.lastError}`, true);
+        log(`Failed to reschedule task id: ${task.id} - ${todoist.lastError}`, true);
       }
     } catch (err) {
-      log2(`Error rescheduling task id: ${task.id} - ${String(err)}`, true);
+      log(`Error rescheduling task id: ${task.id} - ${String(err)}`, true);
     }
   }
 }
-async function completeTasks2(todoist, tasks) {
+async function completeTasks(todoist, tasks) {
   for (const task of tasks) {
     try {
-      log2(`Completing task "${task.content}" (id: ${task.id}).`);
+      log(`Completing task "${task.content}" (id: ${task.id}).`);
       const closeSuccess = await todoist.closeTask(task.id);
       if (!closeSuccess) {
-        log2(`Failed to complete task id: ${task.id} - ${todoist.lastError}`, true);
+        log(`Failed to complete task id: ${task.id} - ${todoist.lastError}`, true);
       }
     } catch (err) {
-      log2(`Error completing task id: ${task.id} - ${String(err)}`, true);
+      log(`Error completing task id: ${task.id} - ${String(err)}`, true);
     }
   }
 }
 async function removeTasksDueDate(todoist, tasks) {
   for (const task of tasks) {
     try {
-      log2(`Removing due date for task "${task.content}" (id: ${task.id}).`);
+      log(`Removing due date for task "${task.content}" (id: ${task.id}).`);
       const updateSuccess = await todoist.updateTask(task.id, {
         content: task.content,
         due_string: "no date"
       });
       if (!updateSuccess) {
-        log2(`Failed to remove due date from task id: ${task.id} - ${todoist.lastError}`, true);
+        log(`Failed to remove due date from task id: ${task.id} - ${todoist.lastError}`, true);
       }
     } catch (err) {
-      log2(`Error removing due date for task id: ${task.id} - ${String(err)}`, true);
+      log(`Error removing due date for task id: ${task.id} - ${String(err)}`, true);
     }
   }
 }

@@ -14,6 +14,8 @@
  * an action, and the next script step can actually commit those changes in Todoist.
  */
 
+import { log } from "../../helpers-utils";
+
 declare function alert(message: string): void;
 declare var console: { log(msg: string): void };
 declare var script: { complete(): void };
@@ -76,14 +78,6 @@ declare class Todoist {
   }): Promise<HTTPResponse>;
 }
 
-// Simple logger function
-function log(msg: string, critical: boolean = false) {
-  console.log(msg);
-  if (critical) {
-    alert(msg);
-  }
-}
-
 /**
  * Step #1: Prompt user to select tasks from a specified filter (e.g. 'overdue', 'due: today').
  * Store selected tasks (and user action) in Drafts template tags for the next step.
@@ -95,9 +89,12 @@ export async function selectTasksStep(filter: string): Promise<void> {
 
   try {
     // Provide your Todoist API token
-    const TODOIST_API_TOKEN = "20fdade709c084c2e255e56e57d0e53370e8283e";
+    const credential = Credential.create("Todoist", "Todoist API access");
+    credential.addPasswordField("token", "API Token");
+    credential.authorize();
+
     const todoist = Todoist.create();
-    todoist.token = TODOIST_API_TOKEN;
+    todoist.token = credential.getValue("Todoist");
 
     // 1) Retrieve tasks from Todoist using the filter
     log(`Fetching tasks with filter: "${filter}"...`);
@@ -191,9 +188,12 @@ export async function executeSelectedTasksStep(): Promise<void> {
   log("executeSelectedTasksStep() invoked.");
 
   // Provide your Todoist API token again (or retrieve from credential)
-  const TODOIST_API_TOKEN = "20fdade709c084c2e255e56e57d0e53370e8283e";
+  const credential = Credential.create("Todoist", "Todoist API access");
+  credential.addPasswordField("token", "API Token");
+  credential.authorize();
+
   const todoist = Todoist.create();
-  todoist.token = TODOIST_API_TOKEN;
+  todoist.token = credential.getValue("token");
 
   try {
     const selectedTasksData = draft.getTemplateTag("SelectedTasksData") || "";
