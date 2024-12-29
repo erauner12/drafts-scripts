@@ -1386,18 +1386,34 @@ Choose an action:`;
         if (task.due?.is_recurring) {
           const laterToday = new Date;
           laterToday.setHours(18, 0, 0, 0);
-          if (task.due?.datetime) {
-            await todoist.updateTask(task.id, {
+          let newDatetime = laterToday.toISOString();
+          let updateCommand = {
+            type: "item_update",
+            temp_id: "ABCDEF",
+            uuid: (Date.now() + Math.random()).toString(),
+            args: {
+              id: task.id,
               content: task.content,
-              due_datetime: laterToday.toISOString()
-            });
-            log(`Rescheduled recurring task "${task.content}" (with due_datetime) to later today.`);
+              due: {
+                date: newDatetime,
+                is_recurring: true
+              }
+            }
+          };
+          log(`Sending Sync v9 request to set date/time => ${newDatetime}`);
+          let syncResponse = await todoist.request({
+            url: "https://api.todoist.com/sync/v9/sync",
+            method: "POST",
+            data: {
+              commands: [updateCommand]
+            }
+          });
+          if (syncResponse.success) {
+            log(`[Sync v9] Successfully updated recurring task "${task.content}" to later today.`);
+            log("Full Sync Response:", syncResponse);
           } else {
-            await todoist.updateTask(task.id, {
-              content: task.content,
-              due_date: laterToday.toISOString().split("T")[0]
-            });
-            log(`Rescheduled recurring task "${task.content}" (with due_date) to later today.`);
+            log(`[Sync v9] Failed updating recurring task "${task.content}".`, true);
+            log(`Status: ${syncResponse.statusCode}, Error: ${syncResponse.error}`);
           }
         } else {
           const updateOptions = {
@@ -1414,18 +1430,35 @@ Choose an action:`;
           const tomorrow = new Date;
           tomorrow.setDate(tomorrow.getDate() + 1);
           tomorrow.setHours(9, 0, 0, 0);
-          if (task.due?.datetime) {
-            await todoist.updateTask(task.id, {
+          let newDatetime = tomorrow.toISOString();
+          let commandUuid = (Date.now() + Math.random()).toString();
+          let updateCommand = {
+            type: "item_update",
+            temp_id: "ABCDEF2",
+            uuid: commandUuid,
+            args: {
+              id: task.id,
               content: task.content,
-              due_datetime: tomorrow.toISOString()
-            });
-            log(`Rescheduled recurring task "${task.content}" (with due_datetime) to tomorrow.`);
+              due: {
+                date: newDatetime,
+                is_recurring: true
+              }
+            }
+          };
+          log(`[Sync v9] Setting tomorrow => ${newDatetime}`);
+          let syncResponse = await todoist.request({
+            url: "https://api.todoist.com/sync/v9/sync",
+            method: "POST",
+            data: {
+              commands: [updateCommand]
+            }
+          });
+          if (syncResponse.success) {
+            log(`[Sync v9] Recurring task "${task.content}" updated to tomorrow.`);
+            log("Full Sync Response:", syncResponse);
           } else {
-            await todoist.updateTask(task.id, {
-              content: task.content,
-              due_date: tomorrow.toISOString().split("T")[0]
-            });
-            log(`Rescheduled recurring task "${task.content}" (with due_date) to tomorrow.`);
+            log(`[Sync v9] Failed updating recurring task "${task.content}".`, true);
+            log(`Status: ${syncResponse.statusCode}, Error: ${syncResponse.error}`);
           }
         } else {
           await todoist.updateTask(task.id, {
@@ -1438,18 +1471,30 @@ Choose an action:`;
       }
       case "Remove Due Date": {
         if (task.due?.is_recurring) {
-          if (task.due?.datetime) {
-            await todoist.updateTask(task.id, {
+          let removeCommand = {
+            type: "item_update",
+            temp_id: "REMOVE_DUE",
+            uuid: (Date.now() + Math.random()).toString(),
+            args: {
+              id: task.id,
               content: task.content,
-              due_datetime: null
-            });
-            log(`Removed due datetime from recurring task "${task.content}".`);
+              due: null
+            }
+          };
+          log(`[Sync v9] Removing due date/time from recurring task "${task.content}".`);
+          let syncResponse = await todoist.request({
+            url: "https://api.todoist.com/sync/v9/sync",
+            method: "POST",
+            data: {
+              commands: [removeCommand]
+            }
+          });
+          if (syncResponse.success) {
+            log(`[Sync v9] Cleared due date/datetime from recurring task "${task.content}".`);
+            log("Full Sync Response:", syncResponse);
           } else {
-            await todoist.updateTask(task.id, {
-              content: task.content,
-              due_date: null
-            });
-            log(`Removed due date from recurring task "${task.content}".`);
+            log(`[Sync v9] Failed removing date from recurring task "${task.content}".`, true);
+            log(`Status: ${syncResponse.statusCode}, Error: ${syncResponse.error}`);
           }
         } else {
           await todoist.updateTask(task.id, {
