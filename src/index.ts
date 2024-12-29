@@ -80,3 +80,5 @@ export {
 export { executeOverdueTasksAction } from "./Actions/TaskActions/ManageOverdueTasksExec";
 
 export { openTaskMenu } from "./Actions/TaskActions/TaskMenu";
+export { runTodoistEnhancedMenu } from "./Actions/TaskActions/TodoistEnhancedMenu";
+

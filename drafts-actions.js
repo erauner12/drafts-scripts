@@ -802,7 +802,6 @@ async function manageOverdueTasks() {
     logCustomMessage("Timezone offset (minutes): " + new Date().getTimezoneOffset().toString());
     const TODOIST_API_TOKEN = credential.getValue("apiToken");
     const todoist = Todoist.create();
-    todoist.token = TODOIST_API_TOKEN;
     logCustomMessage("Todoist API token set.");
     logCustomMessage("Fetching tasks filtered by 'overdue'...");
     const tasks = await todoist.getTasks({ filter: "overdue" });
@@ -976,5 +975,668 @@ async function executeOverdueTasksAction() {
   } catch (error) {
     logCustomMessage("Error in executeOverdueTasksAction: " + error, true);
     alert("An error occurred: " + error);
+  }
+}
+// src/Actions/TaskActions/TodoistEnhancedMenu.ts
+function log(message, critical = false) {
+  console.log(message);
+  if (critical) {
+    alert(message);
+  }
+}
+function showAlert(title, message) {
+  alert(`${title}
+
+${message}`);
+}
+async function runTodoistEnhancedMenu() {
+  const TODOIST_API_TOKEN = "20fdade709c084c2e255e56e57d0e53370e8283e";
+  let todoist = Todoist.create();
+  todoist.token = TODOIST_API_TOKEN;
+  function getTodayDate() {
+    let today = new Date;
+    return today.toISOString().split("T")[0];
+  }
+  async function handleOverdueTasks() {
+    log("Starting overdue tasks management...");
+    let overdueTasks = await todoist.getTasks({ filter: "overdue" });
+    if (overdueTasks.length === 0) {
+      showAlert("No Overdue Tasks", "You have no overdue tasks to manage.");
+      log("No overdue tasks found.");
+      return;
+    }
+    log(`Found ${overdueTasks.length} overdue tasks.`);
+    for (let task of overdueTasks) {
+      let taskPrompt = new Prompt;
+      taskPrompt.title = "Manage Overdue Task";
+      taskPrompt.message = `Task: "${task.content}"
+Original due: ${task.due ? task.due.string : "No date"}`;
+      taskPrompt.addButton("Update to Today");
+      taskPrompt.addButton("Move to Future");
+      taskPrompt.addButton("Remove Due Date");
+      taskPrompt.addButton("Complete Task");
+      taskPrompt.addButton("Delete Task");
+      taskPrompt.addButton("Skip");
+      if (!taskPrompt.show()) {
+        continue;
+      }
+      switch (taskPrompt.buttonPressed) {
+        case "Update to Today":
+          await handleUpdateToToday(task);
+          break;
+        case "Move to Future":
+          await handleMoveToFuture(task);
+          break;
+        case "Remove Due Date":
+          await handleRemoveDueDate(task);
+          break;
+        case "Complete Task":
+          await todoist.closeTask(task.id);
+          break;
+        case "Delete Task":
+          await todoist.closeTask(task.id);
+          break;
+        case "Skip":
+          continue;
+      }
+    }
+    showAlert("Completed", "Finished managing deadline tasks.");
+  }
+  async function handleUpdateToToday(task) {
+    let timePrompt = new Prompt;
+    timePrompt.title = "Set Time for Today";
+    timePrompt.message = `How should this task be scheduled for today?`;
+    timePrompt.addButton("Morning (9 AM)");
+    timePrompt.addButton("Noon (12 PM)");
+    timePrompt.addButton("No Specific Time");
+    timePrompt.addButton("Custom Time");
+    if (!timePrompt.show())
+      return;
+    let updateOptions = { content: task.content };
+    switch (timePrompt.buttonPressed) {
+      case "Morning (9 AM)":
+        updateOptions.due_string = "today at 9am";
+        break;
+      case "Noon (12 PM)":
+        updateOptions.due_string = "today at 12pm";
+        break;
+      case "No Specific Time":
+        updateOptions.due_string = "today";
+        break;
+      case "Custom Time":
+        let customPrompt = new Prompt;
+        customPrompt.addDatePicker("time", "Select Time", new Date, {
+          mode: "time"
+        });
+        if (customPrompt.show()) {
+          let selectedTime = customPrompt.fieldValues["time"];
+          let hours = selectedTime.getHours().toString().padStart(2, "0");
+          let minutes = selectedTime.getMinutes().toString().padStart(2, "0");
+          updateOptions.due_string = `today at ${hours}:${minutes}`;
+        }
+        break;
+    }
+    await todoist.updateTask(task.id, updateOptions);
+  }
+  async function handleMoveToFuture(task) {
+    let datePrompt = new Prompt;
+    datePrompt.title = "Move to Future Date";
+    datePrompt.message = "When should this task be due?";
+    datePrompt.addButton("Tomorrow");
+    datePrompt.addButton("Next Week");
+    datePrompt.addButton("Custom Date");
+    if (!datePrompt.show())
+      return;
+    let updateOptions = { content: task.content };
+    switch (datePrompt.buttonPressed) {
+      case "Tomorrow":
+        updateOptions.due_string = "tomorrow";
+        break;
+      case "Next Week":
+        updateOptions.due_string = "next monday";
+        break;
+      case "Custom Date":
+        let customPrompt = new Prompt;
+        customPrompt.addDatePicker("date", "Select Date", new Date, {
+          mode: "date"
+        });
+        if (customPrompt.show()) {
+          let selectedDate = customPrompt.fieldValues["date"];
+          updateOptions.due_date = selectedDate.toISOString().split("T")[0];
+        }
+        break;
+    }
+    await todoist.updateTask(task.id, updateOptions);
+  }
+  async function handleRemoveDueDate(task) {
+    await todoist.updateTask(task.id, {
+      content: task.content,
+      due_string: "no date"
+    });
+  }
+  try {
+    log("Script started.");
+    log("Fetching active tasks due today...");
+    let allTasks = await todoist.getTasks({ filter: `due: today` });
+    log(`Fetched ${allTasks.length} tasks due today.`);
+    if (allTasks.length === 0) {
+      showAlert("No Tasks", "You have no tasks due today.");
+      log("No tasks due today.");
+      script.complete();
+      return;
+    }
+    let todayDate = getTodayDate();
+    let tasksWithoutTime = [];
+    let tasksWithoutDuration = [];
+    allTasks.forEach((task) => {
+      if (task.due && task.due.date === todayDate) {
+        if (!task.due.datetime) {
+          tasksWithoutTime.push(task);
+        } else {
+          if (!task.duration) {
+            tasksWithoutDuration.push(task);
+          }
+        }
+      }
+    });
+    log(`Filtered tasks into ${tasksWithoutTime.length} without due time and ${tasksWithoutDuration.length} without duration.`);
+    let prompt = new Prompt;
+    prompt.title = "Manage Tasks";
+    prompt.message = "Choose an option to manage your tasks.";
+    prompt.addButton("Assign Due Time and Duration");
+    prompt.addButton("Assign Duration");
+    prompt.addButton("Manage Overdue Tasks");
+    prompt.addButton("Manage Deadline Tasks");
+    prompt.addButton("Cancel");
+    if (!prompt.show()) {
+      log("User cancelled the main prompt.");
+      script.complete();
+      return;
+    }
+    log(`User selected: ${prompt.buttonPressed}`);
+    switch (prompt.buttonPressed) {
+      case "Assign Due Time and Duration":
+        await handleAssignTimeAndDuration(tasksWithoutTime);
+        break;
+      case "Assign Duration":
+        await handleAssignDuration(tasksWithoutDuration);
+        break;
+      case "Manage Overdue Tasks":
+        await handleOverdueTasks();
+        break;
+      case "Manage Deadline Tasks":
+        await handleDeadlineTasks();
+        break;
+      default:
+        log("User cancelled the operation.");
+        script.complete();
+        return;
+    }
+    log("Script completed successfully.");
+    script.complete();
+  } catch (error) {
+    log(`Unhandled error in script: ${error}`, true);
+    showAlert("Script Error", `An unexpected error occurred: ${error}`);
+    script.complete();
+  }
+  async function handleAssignTimeAndDuration(tasks) {
+    if (tasks.length === 0) {
+      showAlert("No Tasks", "No tasks found without a due time.");
+      log("No tasks to assign due time and duration.");
+      return;
+    }
+    log(`Starting to assign due time and duration for ${tasks.length} tasks.`);
+    for (let task of tasks) {
+      log(`Processing task: ${task.content} (Deadline: ${task.deadline ? task.deadline.date : "No deadline"})`);
+      let timePrompt = new Prompt;
+      timePrompt.title = "Assign Due Time and Duration";
+      timePrompt.message = `Assign a due time and duration for:
+"${task.content}"`;
+      timePrompt.addDatePicker("dueTime", "Due Time", new Date, {
+        mode: "time"
+      });
+      const durations = [
+        "15 minutes",
+        "30 minutes",
+        "1 hour",
+        "2 hours",
+        "Custom"
+      ];
+      durations.forEach((duration) => timePrompt.addButton(duration));
+      timePrompt.addButton("Skip");
+      if (!timePrompt.show()) {
+        log(`User skipped assigning due time/duration for "${task.content}"`);
+        continue;
+      }
+      if (durations.includes(timePrompt.buttonPressed)) {
+        let selectedDuration = timePrompt.buttonPressed;
+        log(`User selected duration: ${selectedDuration}`);
+        let dueTime = timePrompt.fieldValues["dueTime"];
+        log(`Selected due time: ${dueTime}`);
+        let dueDateTime = new Date;
+        let [hours, minutes] = dueTime.toTimeString().split(" ")[0].split(":");
+        dueDateTime.setHours(parseInt(hours));
+        dueDateTime.setMinutes(parseInt(minutes));
+        dueDateTime.setSeconds(0);
+        let dueDateTimeRFC3339 = dueDateTime.toISOString();
+        let updateOptions = {
+          due_datetime: dueDateTimeRFC3339,
+          due_string: `Today at ${hours}:${minutes}`
+        };
+        let success = await todoist.updateTask(task.id, updateOptions);
+        if (!success) {
+          log(`Failed to update due time for "${task.content}" - ${todoist.lastError}`, true);
+          continue;
+        }
+        log(`Updated due time for task: "${task.content}"`);
+        if (selectedDuration !== "Custom") {
+          let [amount, unitText] = selectedDuration.split(" ");
+          let unit = "minute";
+          let durationAmount = parseInt(amount);
+          if (unitText.startsWith("hour")) {
+            durationAmount = durationAmount * 60;
+          }
+          let durationUpdate = {
+            content: task.content,
+            duration: {
+              amount: durationAmount,
+              unit
+            }
+          };
+          let durationSuccess = await todoist.updateTask(task.id, durationUpdate);
+          if (durationSuccess) {
+            log(`Assigned duration: ${durationAmount} ${unit} to "${task.content}"`);
+          } else {
+            log(`Failed to assign duration to "${task.content}" - ${todoist.lastError}`, true);
+          }
+        } else {
+          let customDurationPrompt = new Prompt;
+          customDurationPrompt.title = "Custom Duration";
+          customDurationPrompt.message = `Enter a custom duration for:
+"${task.content}"`;
+          customDurationPrompt.addTextField("customDuration", "Duration (e.g., 45 minutes)", "");
+          customDurationPrompt.addButton("Save");
+          customDurationPrompt.addButton("Cancel");
+          if (customDurationPrompt.show()) {
+            if (customDurationPrompt.buttonPressed === "Save") {
+              let customDurationInput = customDurationPrompt.fieldValues["customDuration"];
+              log(`User entered custom duration: ${customDurationInput}`);
+              let customMatch = customDurationInput.match(/(\d+)\s*(minute|minutes|hour|hours|day|days)/i);
+              if (customMatch) {
+                let amount = parseInt(customMatch[1]);
+                let unitInput = customMatch[2].toLowerCase();
+                let unit = "minute";
+                if (unitInput.startsWith("hour")) {
+                  amount = amount * 60;
+                } else if (unitInput.startsWith("day")) {
+                  unit = "day";
+                }
+                let customDurationUpdate = {
+                  content: task.content,
+                  duration: {
+                    amount,
+                    unit
+                  }
+                };
+                let customDurationSuccess = await todoist.updateTask(task.id, customDurationUpdate);
+                if (customDurationSuccess) {
+                  log(`Assigned custom duration: ${amount} ${unit} to "${task.content}"`);
+                } else {
+                  log(`Failed to assign custom duration to "${task.content}" - ${todoist.lastError}`, true);
+                }
+              } else {
+                log(`Invalid custom duration format: "${customDurationInput}"`, true);
+                showAlert("Invalid Duration", "Please enter in format like '45 minutes' or '2 hours'.");
+              }
+            } else {
+              log(`User cancelled custom duration for "${task.content}"`);
+            }
+          }
+        }
+      } else if (timePrompt.buttonPressed === "Skip") {
+        log(`User chose to skip task: "${task.content}"`);
+        continue;
+      } else {
+        log(`Unhandled button pressed: ${timePrompt.buttonPressed}`, true);
+      }
+    }
+  }
+  async function handleDeadlineTasks() {
+    log("Starting deadline tasks management...");
+    log("Fetching all tasks...");
+    let response = await todoist.request({
+      url: "https://api.todoist.com/rest/v2/tasks",
+      method: "GET"
+    });
+    if (!response.success) {
+      log(`Failed to fetch tasks - Status code: ${response.statusCode}`, true);
+      log(`Error: ${response.error}`);
+      showAlert("Error", `Failed to fetch tasks from Todoist. Status code: ${response.statusCode}`);
+      return;
+    }
+    let allTasks = response.responseData;
+    log(`Successfully fetched ${allTasks.length} total tasks`);
+    let today = new Date;
+    let tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    let todayStr = today.toISOString().split("T")[0];
+    let tomorrowStr = tomorrow.toISOString().split("T")[0];
+    let deadlineTasks = allTasks.filter((task) => task.deadline && (task.deadline.date === todayStr || task.deadline.date === tomorrowStr));
+    log(`Found ${deadlineTasks.length} tasks with deadlines for today or tomorrow`);
+    if (deadlineTasks.length === 0) {
+      log("No tasks with deadlines for today or tomorrow");
+      showAlert("No Deadline Tasks", "No tasks with deadlines for today or tomorrow found.");
+      return;
+    }
+    deadlineTasks.sort((a, b) => {
+      if (!a.deadline || !b.deadline)
+        return 0;
+      return a.deadline.date.localeCompare(b.deadline.date);
+    });
+    for (let task of deadlineTasks) {
+      log(`Processing task: "${task.content}" (Deadline: ${task.deadline.date})`);
+      let taskPrompt = new Prompt;
+      taskPrompt.title = "Manage Deadline Task";
+      taskPrompt.message = `Task: "${task.content}"
+Deadline: ${task.deadline.date} (${task.deadline.date === todayStr ? "Today" : "Tomorrow"})`;
+      taskPrompt.addButton("Add Due Date");
+      taskPrompt.addButton("Adjust Deadline");
+      taskPrompt.addButton("Remove Deadline");
+      taskPrompt.addButton("Complete Task");
+      taskPrompt.addButton("Skip");
+      if (!taskPrompt.show()) {
+        log(`Skipped task: "${task.content}"`);
+        continue;
+      }
+      let success = false;
+      switch (taskPrompt.buttonPressed) {
+        case "Add Due Date":
+          success = await handleAddDueDate(task);
+          break;
+        case "Adjust Deadline":
+          success = await handleAdjustDeadline(task);
+          break;
+        case "Remove Deadline":
+          success = await handleRemoveDeadline(task);
+          break;
+        case "Complete Task":
+          success = await todoist.closeTask(task.id);
+          if (success) {
+            log(`Completed task: "${task.content}"`);
+          } else {
+            log(`Failed to complete task: "${task.content}" - ${todoist.lastError}`, true);
+          }
+          break;
+        case "Skip":
+          log(`Skipped task: "${task.content}"`);
+          continue;
+      }
+      if (!success && taskPrompt.buttonPressed !== "Complete Task") {
+        log(`Failed to process task: "${task.content}"`, true);
+      }
+    }
+    showAlert("Completed", "Finished managing deadline tasks.");
+  }
+  async function handleAddDueDate(task) {
+    let timePrompt = new Prompt;
+    timePrompt.title = "Add Due Date";
+    timePrompt.message = `Set due date for:
+"${task.content}"`;
+    timePrompt.addButton("Same as Deadline");
+    timePrompt.addButton("Day Before Deadline");
+    timePrompt.addButton("Custom Date/Time");
+    if (!timePrompt.show())
+      return false;
+    let updateOptions = { content: task.content };
+    try {
+      switch (timePrompt.buttonPressed) {
+        case "Same as Deadline":
+          updateOptions.due_date = task.deadline.date;
+          break;
+        case "Day Before Deadline":
+          let beforeDate = new Date(task.deadline.date);
+          beforeDate.setDate(beforeDate.getDate() - 1);
+          updateOptions.due_date = beforeDate.toISOString().split("T")[0];
+          break;
+        case "Custom Date/Time":
+          let customPrompt = new Prompt;
+          customPrompt.addDatePicker("datetime", "Select Date and Time", new Date, { mode: "datetime" });
+          if (!customPrompt.show())
+            return false;
+          let selectedDateTime = customPrompt.fieldValues["datetime"];
+          updateOptions.due_datetime = selectedDateTime.toISOString();
+          break;
+      }
+      let success = await todoist.updateTask(task.id, updateOptions);
+      if (success) {
+        log(`Updated due date for "${task.content}"`);
+        return true;
+      } else {
+        log(`Failed to update due date for "${task.content}" - ${todoist.lastError}`, true);
+        return false;
+      }
+    } catch (error) {
+      log(`Error updating due date: ${error}`, true);
+      return false;
+    }
+  }
+  async function handleAdjustDeadline(task) {
+    let datePrompt = new Prompt;
+    datePrompt.title = "Adjust Deadline";
+    datePrompt.message = `Current deadline: ${task.deadline.date}
+Select new deadline:`;
+    datePrompt.addButton("Tomorrow");
+    datePrompt.addButton("Next Week");
+    datePrompt.addButton("Custom Date");
+    if (!datePrompt.show())
+      return false;
+    try {
+      let newDeadline;
+      switch (datePrompt.buttonPressed) {
+        case "Tomorrow":
+          let tomorrow = new Date;
+          tomorrow.setDate(tomorrow.getDate() + 1);
+          newDeadline = tomorrow.toISOString().split("T")[0];
+          break;
+        case "Next Week":
+          let nextWeek = new Date;
+          nextWeek.setDate(nextWeek.getDate() + 7);
+          newDeadline = nextWeek.toISOString().split("T")[0];
+          break;
+        case "Custom Date":
+          let customPrompt = new Prompt;
+          customPrompt.addDatePicker("newDeadline", "Select New Deadline", new Date, { mode: "date" });
+          if (!customPrompt.show())
+            return false;
+          let selectedDate = customPrompt.fieldValues["newDeadline"];
+          newDeadline = selectedDate.toISOString().split("T")[0];
+          break;
+      }
+      let updateOptions = {
+        content: task.content,
+        deadline: {
+          date: newDeadline,
+          lang: "en"
+        }
+      };
+      let success = await todoist.updateTask(task.id, updateOptions);
+      if (success) {
+        log(`Updated deadline for "${task.content}" to ${newDeadline}`);
+        return true;
+      } else {
+        log(`Failed to update deadline for "${task.content}" - ${todoist.lastError}`, true);
+        return false;
+      }
+    } catch (error) {
+      log(`Error adjusting deadline: ${error}`, true);
+      return false;
+    }
+  }
+  async function handleRemoveDeadline(task) {
+    try {
+      let updateOptions = {
+        content: task.content,
+        deadline: null
+      };
+      let success = await todoist.updateTask(task.id, updateOptions);
+      if (success) {
+        log(`Removed deadline from "${task.content}"`);
+        return true;
+      } else {
+        log(`Failed to remove deadline from "${task.content}" - ${todoist.lastError}`, true);
+        return false;
+      }
+    } catch (error) {
+      log(`Error removing deadline: ${error}`, true);
+      return false;
+    }
+  }
+  async function handleAssignDuration(tasks) {
+    if (tasks.length === 0) {
+      showAlert("No Tasks", "No tasks found without a duration.");
+      log("No tasks to assign duration.");
+      return;
+    }
+    log(`Starting to assign durations for ${tasks.length} tasks.`);
+    let remainingTasks = [...tasks];
+    while (remainingTasks.length > 0) {
+      let selectedTask = showTaskSelectionPrompt(remainingTasks);
+      if (!selectedTask) {
+        log("User cancelled the task selection prompt.");
+        break;
+      }
+      log(`User selected task: "${selectedTask.content}"`);
+      let assignSuccess = await assignDurationToTask(selectedTask);
+      if (assignSuccess) {
+        log(`Successfully assigned duration to "${selectedTask.content}"`);
+      } else {
+        log(`Failed to assign duration to "${selectedTask.content}"`, true);
+      }
+      remainingTasks = remainingTasks.filter((t) => t.id !== selectedTask.id);
+    }
+    log("Completed assigning durations.");
+    showAlert("Completed", "Finished assigning durations.");
+  }
+  function showTaskSelectionPrompt(tasks) {
+    log("Displaying task selection prompt...");
+    let p = new Prompt;
+    p.title = "Assign Duration";
+    p.message = "Select a task to assign a duration:";
+    let taskOptions = tasks.map((t) => `${t.content} (ID: ${t.id})`);
+    p.addPicker("task", "Tasks", [taskOptions], [0]);
+    p.addButton("Select");
+    p.addButton("Cancel");
+    if (p.show() && p.buttonPressed === "Select") {
+      let selectedIndex = p.fieldValues["task"][0];
+      let selectedTaskLabel = taskOptions[selectedIndex];
+      log(`Selected Task Label: "${selectedTaskLabel}"`);
+      log(`Selected Index: ${selectedIndex}`);
+      if (typeof selectedTaskLabel === "string") {
+        let idMatch = selectedTaskLabel.match(/\(ID:\s*(\d+)\)$/);
+        if (idMatch) {
+          let taskId = idMatch[1];
+          let selectedTask = tasks.find((t) => t.id.toString() === taskId);
+          if (selectedTask) {
+            log(`Task selected: "${selectedTask.content}" with ID ${selectedTask.id}`);
+            return selectedTask;
+          } else {
+            log(`Task ID "${taskId}" not found in tasks array.`, true);
+            return null;
+          }
+        } else {
+          log(`Could not extract ID from label: "${selectedTaskLabel}"`, true);
+          return null;
+        }
+      } else {
+        log(`Invalid selection type: ${typeof selectedTaskLabel}`, true);
+        return null;
+      }
+    }
+    log("User cancelled or closed the task selection prompt.");
+    return null;
+  }
+  async function assignDurationToTask(task) {
+    log(`Assigning duration to task: "${task.content}"`);
+    let durationPrompt = new Prompt;
+    durationPrompt.title = "Assign Duration";
+    durationPrompt.message = `Assign a duration for:
+"${task.content}"`;
+    const durations = [
+      "15 minutes",
+      "30 minutes",
+      "1 hour",
+      "2 hours",
+      "Custom"
+    ];
+    durations.forEach((d) => durationPrompt.addButton(d));
+    durationPrompt.addButton("Skip");
+    if (!durationPrompt.show()) {
+      log(`User skipped assigning duration for "${task.content}"`);
+      return false;
+    }
+    if (durations.includes(durationPrompt.buttonPressed)) {
+      let selectedDuration = durationPrompt.buttonPressed;
+      log(`User selected duration: ${selectedDuration}`);
+      if (selectedDuration !== "Custom") {
+        let [amount, unitText] = selectedDuration.split(" ");
+        let durationAmount = parseInt(amount);
+        if (unitText.startsWith("hour")) {
+          durationAmount = durationAmount * 60;
+        }
+        let durationUpdate = {
+          content: task.content,
+          duration: durationAmount,
+          duration_unit: "minute"
+        };
+        let durationSuccess = await todoist.updateTask(task.id, durationUpdate);
+        if (durationSuccess) {
+          log(`Assigned duration: ${durationAmount} minutes to "${task.content}"`);
+          return true;
+        } else {
+          log(`Failed to assign duration to "${task.content}" - ${todoist.lastError}`, true);
+          return false;
+        }
+      } else {
+        let customDurationPrompt = new Prompt;
+        customDurationPrompt.title = "Custom Duration";
+        customDurationPrompt.message = `Enter a custom duration for:
+"${task.content}"`;
+        customDurationPrompt.addTextField("customDuration", "Duration (e.g., 45 minutes)", "");
+        customDurationPrompt.addButton("Save");
+        customDurationPrompt.addButton("Cancel");
+        if (customDurationPrompt.show()) {
+          if (customDurationPrompt.buttonPressed === "Save") {
+            let customDurationInput = customDurationPrompt.fieldValues["customDuration"];
+            log(`User entered custom duration: ${customDurationInput}`);
+            let customMatch = customDurationInput.match(/(\d+)\s*(minute|minutes|hour|hours|day|days)/i);
+            if (customMatch) {
+              let amount = parseInt(customMatch[1]);
+              let unitInput = customMatch[2].toLowerCase();
+              if (unitInput.startsWith("hour")) {
+                amount = amount * 60;
+              }
+              let customDurationUpdate = {
+                content: task.content,
+                duration: amount,
+                duration_unit: "minute"
+              };
+              let customDurationSuccess = await todoist.updateTask(task.id, customDurationUpdate);
+              if (customDurationSuccess) {
+                log(`Assigned custom duration: ${amount} minutes to "${task.content}"`);
+                return true;
+              } else {
+                log(`Failed to assign custom duration to "${task.content}" - ${todoist.lastError}`, true);
+                return false;
+              }
+            } else {
+              log(`Invalid custom duration format: "${customDurationInput}"`, true);
+              showAlert("Invalid Duration", "Please enter the duration like '45 minutes' or '2 hours'.");
+              return false;
+            }
+          }
+        }
+      }
+    }
+    return false;
   }
 }
