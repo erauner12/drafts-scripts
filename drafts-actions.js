@@ -1642,3 +1642,158 @@ Select new deadline:`;
     return false;
   }
 }
+// src/Actions/TaskActions/TodoistFlexibleFlow.ts
+function log2(msg, critical = false) {
+  console.log(msg);
+  if (critical) {
+    alert(msg);
+  }
+}
+async function selectTasksStep(filter) {
+  log2(`selectTasksStep() started. Filter used: "${filter}"`);
+  try {
+    const TODOIST_API_TOKEN = "20fdade709c084c2e255e56e57d0e53370e8283e";
+    const todoist = Todoist.create();
+    todoist.token = TODOIST_API_TOKEN;
+    log2(`Fetching tasks with filter: "${filter}"...`);
+    const tasks = await todoist.getTasks({ filter });
+    log2(`Found ${tasks.length} tasks with filter: "${filter}"`);
+    if (tasks.length === 0) {
+      alert(`No tasks found with filter: ${filter}`);
+      script.complete();
+      return;
+    }
+    const taskTitles = tasks.map((t) => t.content);
+    const prompt = new Prompt;
+    prompt.title = `Select Tasks (${filter})`;
+    prompt.message = "Select one or more tasks to act on.";
+    prompt.addSelect("selectedTasks", "Tasks", taskTitles, [], true);
+    prompt.addButton("OK");
+    prompt.addButton("Cancel");
+    const userDidSelect = prompt.show();
+    if (!userDidSelect || prompt.buttonPressed !== "OK") {
+      log2("User canceled or dismissed the task selection prompt.");
+      script.complete();
+      return;
+    }
+    const selectedContents = prompt.fieldValues["selectedTasks"] || [];
+    if (!Array.isArray(selectedContents) || selectedContents.length === 0) {
+      alert("No tasks selected.");
+      script.complete();
+      return;
+    }
+    const selectedTasks = tasks.filter((t) => selectedContents.includes(t.content));
+    const actionPrompt = new Prompt;
+    actionPrompt.title = "Select Action";
+    actionPrompt.message = "Choose an action for the selected tasks:";
+    actionPrompt.addButton("Reschedule to Today");
+    actionPrompt.addButton("Complete Tasks");
+    actionPrompt.addButton("Remove Due Date");
+    actionPrompt.addButton("Cancel");
+    const actionDidShow = actionPrompt.show();
+    if (!actionDidShow || actionPrompt.buttonPressed === "Cancel") {
+      log2("User canceled or dismissed the action selection prompt.");
+      script.complete();
+      return;
+    }
+    const chosenAction = actionPrompt.buttonPressed;
+    log2(`User selected action: "${chosenAction}"`);
+    draft.setTemplateTag("SelectedTasksData", JSON.stringify(selectedTasks));
+    draft.setTemplateTag("SelectedTasksAction", chosenAction);
+    alert("Tasks and action have been saved. Run the next step to execute them.");
+    log2("selectTasksStep() completed. Template tags saved.");
+    script.complete();
+  } catch (error) {
+    log2(`Error in selectTasksStep: ${error}`, true);
+    script.complete();
+  }
+}
+async function executeSelectedTasksStep() {
+  log2("executeSelectedTasksStep() invoked.");
+  const TODOIST_API_TOKEN = "20fdade709c084c2e255e56e57d0e53370e8283e";
+  const todoist = Todoist.create();
+  todoist.token = TODOIST_API_TOKEN;
+  try {
+    const selectedTasksData = draft.getTemplateTag("SelectedTasksData") || "";
+    const selectedAction = draft.getTemplateTag("SelectedTasksAction") || "";
+    if (!selectedTasksData || !selectedAction) {
+      alert("No stored tasks or action found. Did you run the selection step?");
+      log2("No tasks or action in template tags. Exiting.");
+      script.complete();
+      return;
+    }
+    const tasksToProcess = JSON.parse(selectedTasksData);
+    log2(`Retrieved ${tasksToProcess.length} tasks to process with action "${selectedAction}"`);
+    if (tasksToProcess.length === 0) {
+      alert("No tasks found in selection data.");
+      script.complete();
+      return;
+    }
+    switch (selectedAction) {
+      case "Reschedule to Today":
+        await rescheduleTasksToToday2(todoist, tasksToProcess);
+        break;
+      case "Complete Tasks":
+        await completeTasks2(todoist, tasksToProcess);
+        break;
+      case "Remove Due Date":
+        await removeTasksDueDate(todoist, tasksToProcess);
+        break;
+      default:
+        alert(`Unknown action: ${selectedAction}`);
+        log2(`Unknown action selected: "${selectedAction}"`, true);
+        script.complete();
+        return;
+    }
+    alert("Execution step completed successfully!");
+    script.complete();
+  } catch (error) {
+    log2(`Error in executeSelectedTasksStep: ${error}`, true);
+    script.complete();
+  }
+}
+async function rescheduleTasksToToday2(todoist, tasks) {
+  for (const task of tasks) {
+    try {
+      log2(`Rescheduling task "${task.content}" (id: ${task.id}) to today.`);
+      const updateSuccess = await todoist.updateTask(task.id, {
+        content: task.content,
+        due_string: "today"
+      });
+      if (!updateSuccess) {
+        log2(`Failed to reschedule task id: ${task.id} - ${todoist.lastError}`, true);
+      }
+    } catch (err) {
+      log2(`Error rescheduling task id: ${task.id} - ${String(err)}`, true);
+    }
+  }
+}
+async function completeTasks2(todoist, tasks) {
+  for (const task of tasks) {
+    try {
+      log2(`Completing task "${task.content}" (id: ${task.id}).`);
+      const closeSuccess = await todoist.closeTask(task.id);
+      if (!closeSuccess) {
+        log2(`Failed to complete task id: ${task.id} - ${todoist.lastError}`, true);
+      }
+    } catch (err) {
+      log2(`Error completing task id: ${task.id} - ${String(err)}`, true);
+    }
+  }
+}
+async function removeTasksDueDate(todoist, tasks) {
+  for (const task of tasks) {
+    try {
+      log2(`Removing due date for task "${task.content}" (id: ${task.id}).`);
+      const updateSuccess = await todoist.updateTask(task.id, {
+        content: task.content,
+        due_string: "no date"
+      });
+      if (!updateSuccess) {
+        log2(`Failed to remove due date from task id: ${task.id} - ${todoist.lastError}`, true);
+      }
+    } catch (err) {
+      log2(`Error removing due date for task id: ${task.id} - ${String(err)}`, true);
+    }
+  }
+}

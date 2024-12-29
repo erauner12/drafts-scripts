@@ -82,3 +82,6 @@ export { executeOverdueTasksAction } from "./Actions/TaskActions/ManageOverdueTa
 export { openTaskMenu } from "./Actions/TaskActions/TaskMenu";
 export { runTodoistEnhancedMenu } from "./Actions/TaskActions/TodoistEnhancedMenu";
 
+// New flexible flow approach
+export { executeSelectedTasksStep, selectTasksStep } from "./Actions/TaskActions/TodoistFlexibleFlow";
+
