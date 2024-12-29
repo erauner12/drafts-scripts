@@ -47,12 +47,8 @@ export const getUrlFromClipboard = (): string => {
 };
 
 /**
- * Logs a message to the Drafts action log. If isError is set, logs as an error.
+ * Logs a message to the Drafts action log.
  */
-export function logCustomMessage(msg: string, isError: boolean = false): void {
-  if (isError) {
-    console.error(msg);
-  } else {
-    console.log(msg);
-  }
+export function logCustomMessage(msg: string): void {
+  console.log(msg);
 }

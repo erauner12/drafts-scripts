@@ -24,8 +24,7 @@ async function rescheduleTasksToToday(
     try {
       logCustomMessage("Rescheduling task " + task.id + " to today...");
       await todoistClient.updateTask(task.id, {
-        due_string: "today",
-        due_lang: "en",
+        due_date: new Date().toISOString().split("T")[0],
       });
       logCustomMessage(
         "Task " + task.id + " successfully rescheduled to today."
