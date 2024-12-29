@@ -1,5 +1,3 @@
-const { log } = require("console");
-
 // src/helpers-get-text.ts
 var getDraftLength = () => {
   return draft.content.length;
@@ -40,12 +38,8 @@ var getSelectionEndIndex = (selectionStartIndex, selectionLength) => {
   return selectionEndIndex;
 };
 var getCurrentLineRange = () => {
-  const [currentLineStartIndex, currentLineLength] =
-    editor.getSelectedLineRange();
-  const currentLineText = getTextfromRange(
-    currentLineStartIndex,
-    currentLineLength
-  );
+  const [currentLineStartIndex, currentLineLength] = editor.getSelectedLineRange();
+  const currentLineText = getTextfromRange(currentLineStartIndex, currentLineLength);
   if (isLastLine(currentLineText)) {
     return [currentLineStartIndex, currentLineLength];
   }
@@ -119,10 +113,7 @@ var setSelectionRange = (selectionStartIndex, selectionLength) => {
   editor.setSelectedRange(selectionStartIndex, selectionLength);
 };
 var setSelectionStartEnd = (selectionStartIndex, selectionEndIndex) => {
-  setSelectionRange(
-    selectionStartIndex,
-    selectionEndIndex - selectionStartIndex
-  );
+  setSelectionRange(selectionStartIndex, selectionEndIndex - selectionStartIndex);
 };
 var setSelectionRangeKeepNewline = (selectionStartIndex, selectionLength) => {
   const selectedText = getTextfromRange(selectionStartIndex, selectionLength);
@@ -136,13 +127,9 @@ var setCursorPosition = (newCursorPosition) => {
   setSelectionRange(newCursorPosition, 0);
 };
 var trimSelectedText = (selectionStartIndex, selectionEndIndex) => {
-  const selectedText = getTextFromStartEnd(
-    selectionStartIndex,
-    selectionEndIndex
-  );
+  const selectedText = getTextFromStartEnd(selectionStartIndex, selectionEndIndex);
   const trimmedText = selectedText.trim();
-  const trimmedTextStart =
-    selectionStartIndex + selectedText.indexOf(trimmedText);
+  const trimmedTextStart = selectionStartIndex + selectedText.indexOf(trimmedText);
   const trimmedTextEnd = trimmedTextStart + trimmedText.length;
   return [trimmedTextStart, trimmedTextEnd];
 };
@@ -171,8 +158,7 @@ var copySelectedTextToClipboard = () => {
   copyToClipboard(selectedText);
 };
 var isUrl = (s) => {
-  const urlRegex =
-    /(ftp|http|https):\/\/(\w+:{0,1}\w*@)?(\S+)(:[0-9]+)?(\/|\/([\w#!:.?+=&%@!\-\/]))?/;
+  const urlRegex = /(ftp|http|https):\/\/(\w+:{0,1}\w*@)?(\S+)(:[0-9]+)?(\/|\/([\w#!:.?+=&%@!\-\/]))?/;
   return urlRegex.test(s);
 };
 var getUrlFromClipboard = () => {
@@ -199,29 +185,17 @@ class CopyCutDelete {
     this.cursorPosition = getCursorPosition();
   }
   addNewlineIfEndOfDraft = () => {
-    return isLastLine(this.text)
-      ? `
-`
-      : "";
+    return isLastLine(this.text) ? `
+` : "";
   };
   copyLineUp = () => {
-    setTextinRange(
-      this.text + this.addNewlineIfEndOfDraft(),
-      this.lineStartIndex,
-      0
-    );
+    setTextinRange(this.text + this.addNewlineIfEndOfDraft(), this.lineStartIndex, 0);
     setCursorPosition(this.cursorPosition);
   };
   copyLineDown = () => {
     const newlineIfEndOfDraft = this.addNewlineIfEndOfDraft();
-    setTextinRange(
-      newlineIfEndOfDraft + this.text,
-      this.lineStartIndex + this.lineLength,
-      0
-    );
-    setCursorPosition(
-      this.cursorPosition + this.lineLength + newlineIfEndOfDraft.length
-    );
+    setTextinRange(newlineIfEndOfDraft + this.text, this.lineStartIndex + this.lineLength, 0);
+    setCursorPosition(this.cursorPosition + this.lineLength + newlineIfEndOfDraft.length);
   };
   copyLineToClipboard = () => {
     const selectedText = getSelectedTextOrCurrentLine();
@@ -236,10 +210,7 @@ class CopyCutDelete {
   };
   deleteLine = () => {
     setTextinRange("", this.lineStartIndex, this.lineLength);
-    let remainingText = getTextfromRange(
-      this.lineStartIndex + this.lineLength - 2,
-      getDraftLength()
-    ).trim();
+    let remainingText = getTextfromRange(this.lineStartIndex + this.lineLength - 2, getDraftLength()).trim();
     if (remainingText) {
       setCursorPosition(this.lineStartIndex);
     } else {
@@ -250,49 +221,34 @@ class CopyCutDelete {
   };
 }
 var copyLineUp = () => {
-  const copyCutDelete = new CopyCutDelete();
+  const copyCutDelete = new CopyCutDelete;
   copyCutDelete.copyLineUp();
 };
 var copyLineDown = () => {
-  const copyCutDelete = new CopyCutDelete();
+  const copyCutDelete = new CopyCutDelete;
   copyCutDelete.copyLineDown();
 };
 var copyLineToClipboard = () => {
-  const copyCutDelete = new CopyCutDelete();
+  const copyCutDelete = new CopyCutDelete;
   copyCutDelete.copyLineToClipboard();
 };
 var cutLine = () => {
-  const copyCutDelete = new CopyCutDelete();
+  const copyCutDelete = new CopyCutDelete;
   copyCutDelete.cutLine();
 };
 var deleteLine = () => {
-  const copyCutDelete = new CopyCutDelete();
+  const copyCutDelete = new CopyCutDelete;
   copyCutDelete.deleteLine();
 };
 // src/actions-editing-selection.ts
 var selectSection = (sectionSeparator) => {
   const cursorPosition = getCursorPosition();
-  const previousSeparatorPosition = getPreviousOccurrenceIndex(
-    sectionSeparator,
-    cursorPosition
-  );
-  const nextSeparatorPosition = getNextOccurrenceIndex(
-    sectionSeparator,
-    cursorPosition
-  );
-  const sectionStart =
-    previousSeparatorPosition === 0
-      ? previousSeparatorPosition
-      : previousSeparatorPosition + sectionSeparator.length;
+  const previousSeparatorPosition = getPreviousOccurrenceIndex(sectionSeparator, cursorPosition);
+  const nextSeparatorPosition = getNextOccurrenceIndex(sectionSeparator, cursorPosition);
+  const sectionStart = previousSeparatorPosition === 0 ? previousSeparatorPosition : previousSeparatorPosition + sectionSeparator.length;
   const sectionEnd = nextSeparatorPosition;
-  const [trimmedSectionStart, trimmedSectionEnd] = trimSelectedText(
-    sectionStart,
-    sectionEnd
-  );
-  setSelectionRange(
-    trimmedSectionStart,
-    trimmedSectionEnd - trimmedSectionStart
-  );
+  const [trimmedSectionStart, trimmedSectionEnd] = trimSelectedText(sectionStart, sectionEnd);
+  setSelectionRange(trimmedSectionStart, trimmedSectionEnd - trimmedSectionStart);
 };
 var selectLine = () => {
   selectSection(`
@@ -339,12 +295,8 @@ var moveCursorRight = () => {
 };
 var jumpToPreviousHeader = () => {
   const cursorPosition = getCursorPosition();
-  const previousHeaderPosition =
-    getPreviousOccurrenceIndex(
-      `
-#`,
-      cursorPosition
-    ) + 1;
+  const previousHeaderPosition = getPreviousOccurrenceIndex(`
+#`, cursorPosition) + 1;
   if (previousHeaderPosition === 1) {
     setCursorPosition(0);
   } else {
@@ -353,12 +305,8 @@ var jumpToPreviousHeader = () => {
 };
 var jumpToNextHeader = () => {
   const cursorPosition = getCursorPosition();
-  const nextHeaderPosition =
-    getNextOccurrenceIndex(
-      `
-#`,
-      cursorPosition
-    ) + 1;
+  const nextHeaderPosition = getNextOccurrenceIndex(`
+#`, cursorPosition) + 1;
   setCursorPosition(nextHeaderPosition);
 };
 // src/actions-markdown-highlighting.ts
@@ -369,10 +317,7 @@ class SyntaxHighlighter {
   selectedText;
   constructor() {
     [this.selectionStartIndex, this.selectionLength] = getSelectedRange();
-    this.selectionEndIndex = getSelectionEndIndex(
-      this.selectionStartIndex,
-      this.selectionLength
-    );
+    this.selectionEndIndex = getSelectionEndIndex(this.selectionStartIndex, this.selectionLength);
     this.selectedText = getSelectedText();
   }
   textIsSelected = () => {
@@ -381,46 +326,30 @@ class SyntaxHighlighter {
   innerTextIsHighlighted = (highlightPrefix, highlightSuffix) => {
     const textBeforeSelection = getTextBefore(this.selectionStartIndex);
     const textAfterSelection = getTextAfter(this.selectionEndIndex);
-    return (
-      textBeforeSelection.endsWith(highlightPrefix) &&
-      textAfterSelection.startsWith(highlightSuffix)
-    );
+    return textBeforeSelection.endsWith(highlightPrefix) && textAfterSelection.startsWith(highlightSuffix);
   };
   outerTextIsHighlighted = (highlightPrefix, highlightSuffix) => {
-    return (
-      this.selectedText.startsWith(highlightPrefix) &&
-      this.selectedText.endsWith(highlightSuffix)
-    );
+    return this.selectedText.startsWith(highlightPrefix) && this.selectedText.endsWith(highlightSuffix);
   };
   textIsHighlightedAsymmetric = (highlightPrefix, highlightSuffix) => {
-    return (
-      this.innerTextIsHighlighted(highlightPrefix, highlightSuffix) ||
-      this.outerTextIsHighlighted(highlightPrefix, highlightSuffix)
-    );
+    return this.innerTextIsHighlighted(highlightPrefix, highlightSuffix) || this.outerTextIsHighlighted(highlightPrefix, highlightSuffix);
   };
   textIsHighlightedSymmetric = (highlightChar) => {
     return this.textIsHighlightedAsymmetric(highlightChar, highlightChar);
   };
   addHighlightAsymmetric = (highlightPrefix, highlightSuffix) => {
     setSelectedText(highlightPrefix + this.selectedText + highlightSuffix);
-    setCursorPosition(
-      this.selectionEndIndex + highlightPrefix.length + highlightSuffix.length
-    );
+    setCursorPosition(this.selectionEndIndex + highlightPrefix.length + highlightSuffix.length);
   };
   addHighlightSymmetric = (highlightChar) => {
     this.addHighlightAsymmetric(highlightChar, highlightChar);
   };
   removeHighlightAsymmetric = (highlightPrefix, highlightSuffix) => {
     if (this.outerTextIsHighlighted(highlightPrefix, highlightSuffix)) {
-      setSelectedText(
-        this.selectedText.slice(highlightPrefix.length, -highlightSuffix.length)
-      );
+      setSelectedText(this.selectedText.slice(highlightPrefix.length, -highlightSuffix.length));
       return;
     }
-    setSelectionStartEnd(
-      this.selectionStartIndex - highlightPrefix.length,
-      this.selectionEndIndex + highlightSuffix.length
-    );
+    setSelectionStartEnd(this.selectionStartIndex - highlightPrefix.length, this.selectionEndIndex + highlightSuffix.length);
     setSelectedText(this.selectedText);
   };
   removeHighlightSymmetric = (highlightChar) => {
@@ -461,19 +390,19 @@ class SyntaxHighlighter {
   };
 }
 var highlightBold = () => {
-  const syntaxHighlighter = new SyntaxHighlighter();
+  const syntaxHighlighter = new SyntaxHighlighter;
   syntaxHighlighter.addOrRemoveHighlightSymmetric("**");
 };
 var highlightItalic = () => {
-  const syntaxHighlighter = new SyntaxHighlighter();
+  const syntaxHighlighter = new SyntaxHighlighter;
   syntaxHighlighter.addOrRemoveHighlightSymmetric("*");
 };
 var highlightCode = () => {
-  const syntaxHighlighter = new SyntaxHighlighter();
+  const syntaxHighlighter = new SyntaxHighlighter;
   syntaxHighlighter.addOrRemoveHighlightSymmetric("`");
 };
 var highlightCodeBlock = () => {
-  const syntaxHighlighter = new SyntaxHighlighter();
+  const syntaxHighlighter = new SyntaxHighlighter;
   syntaxHighlighter.addOrRemoveHighlightAsymmetric("```\n", "\n```");
 };
 // src/actions-markdown-links.ts
@@ -504,22 +433,14 @@ class MarkdownLink {
   }
   insertFullLink() {
     setSelectedText(`${this.prefix}[${this.selectedText}](${this.url})`);
-    setCursorPosition(
-      this.selectionStartIndex + this.selectionLength + this.url.length + 4
-    );
+    setCursorPosition(this.selectionStartIndex + this.selectionLength + this.url.length + 4);
   }
 }
 var insertMarkdownLinkWithPrefix = (prefix) => {
   const url = getUrlFromClipboard();
   const selectedText = getSelectedText();
   const [selectionStartIndex, selectionLength] = getSelectedRange();
-  const markdownLink = new MarkdownLink(
-    selectedText,
-    selectionStartIndex,
-    selectionLength,
-    url,
-    prefix
-  );
+  const markdownLink = new MarkdownLink(selectedText, selectionStartIndex, selectionLength, url, prefix);
   if (url.length == 0 && selectionLength == 0) {
     markdownLink.insertEmptyLink();
     return;
@@ -560,10 +481,7 @@ var checkIfLineIsListItem = (lineText) => {
 var linebreakKeepIndentation = () => {
   const currentLineStartIndex = getCurrentLineStartIndex();
   const currentLineEndIndex = getCurrentLineEndIndex();
-  const currentLineText = getTextFromStartEnd(
-    currentLineStartIndex,
-    currentLineEndIndex
-  );
+  const currentLineText = getTextFromStartEnd(currentLineStartIndex, currentLineEndIndex);
   let indentation = getIndentation(currentLineText);
   const isListItem = checkIfLineIsListItem(currentLineText);
   if (isListItem) {
@@ -583,11 +501,11 @@ class ToggleMarkdown {
       uncheckedBox: "[ ]",
       checkedBox: "[x]",
       uncheckedTask: "- [ ]",
-      checkedTask: "- [x]",
+      checkedTask: "- [x]"
     };
     this.taskPatterns = [
       this.taskState.uncheckedTask,
-      this.taskState.checkedTask,
+      this.taskState.checkedTask
     ];
     this.CheckboxPatterns = Object.values(this.taskState);
   }
@@ -605,10 +523,7 @@ class ToggleMarkdown {
     const toggledSelection = toggleFunction(selection);
     setSelectionRange(selectionStartIndex, selectionLength);
     setSelectedText(toggledSelection);
-    const toggledSelectionEndIndex = getSelectionEndIndex(
-      selectionStartIndex,
-      toggledSelection.length
-    );
+    const toggledSelectionEndIndex = getSelectionEndIndex(selectionStartIndex, toggledSelection.length);
     setCursorPosition(toggledSelectionEndIndex);
   };
   lineHasTask(line) {
@@ -630,20 +545,16 @@ class ToggleMarkdown {
     return `${this.taskState.uncheckedTask} ${line}`;
   }
   selectionHasTask(selectedLines) {
-    return this.selectionHasItem(selectedLines, (line) =>
-      this.lineHasTask(line)
-    );
+    return this.selectionHasItem(selectedLines, (line) => this.lineHasTask(line));
   }
   toggleTasksSelection = (selection) => {
     const selectedLines = selection.split(`
 `);
     if (this.selectionHasTask(selectedLines)) {
-      return selectedLines.map((line) => this.removeTaskMarkerIfRequired(line))
-        .join(`
+      return selectedLines.map((line) => this.removeTaskMarkerIfRequired(line)).join(`
 `);
     }
-    return selectedLines.map((line) => this.addTaskMarkerIfRequired(line))
-      .join(`
+    return selectedLines.map((line) => this.addTaskMarkerIfRequired(line)).join(`
 `);
   };
   toggleMarkdownTasks = () => {
@@ -668,10 +579,7 @@ class ToggleMarkdown {
     return line.replace(this.taskState.checkedBox, this.taskState.uncheckedBox);
   }
   selectionIsChecked(selectedLines) {
-    return this.selectionHasItem(
-      selectedLines,
-      (line) => this.lineHasCheckbox(line) && this.lineIsChecked(line)
-    );
+    return this.selectionHasItem(selectedLines, (line) => this.lineHasCheckbox(line) && this.lineIsChecked(line));
   }
   toggleCheckboxesSelection = (selection) => {
     const selectedLines = selection.split(`
@@ -688,11 +596,11 @@ class ToggleMarkdown {
   };
 }
 var toggleMarkdownTasks = () => {
-  const toggleMarkdown = new ToggleMarkdown();
+  const toggleMarkdown = new ToggleMarkdown;
   toggleMarkdown.toggleMarkdownTasks();
 };
 var toggleMarkdownCheckboxes = () => {
-  const toggleMarkdown = new ToggleMarkdown();
+  const toggleMarkdown = new ToggleMarkdown;
   toggleMarkdown.toggleMarkdownCheckboxes();
 };
 // src/actions-transform-case.ts
@@ -724,9 +632,7 @@ var _toTitleCaseWord = (str) => {
     return "";
   }
   const firstLetter = str[0];
-  return str.length == 1
-    ? firstLetter
-    : firstLetter.toUpperCase() + str.slice(1);
+  return str.length == 1 ? firstLetter : firstLetter.toUpperCase() + str.slice(1);
 };
 var _toTitleCase = (str) => {
   return removeExtraWhitespace(str).split(" ").map(_toTitleCaseWord).join(" ");
@@ -739,10 +645,7 @@ var toTitleCase = () => {
 var capitalize = () => {
   transformAndReplaceSelectedText((selectedText) => {
     const noExtraWhitespace = removeExtraWhitespace(selectedText);
-    return (
-      noExtraWhitespace[0].toUpperCase() +
-      noExtraWhitespace.slice(1).toLowerCase()
-    );
+    return noExtraWhitespace[0].toUpperCase() + noExtraWhitespace.slice(1).toLowerCase();
   });
 };
 var _toMemeCaseWord = (str) => {
@@ -758,10 +661,7 @@ var _toMemeCaseWord = (str) => {
 };
 var toMemeCase = () => {
   transformAndReplaceSelectedText((selectedText) => {
-    return removeExtraWhitespace(selectedText)
-      .split(" ")
-      .map(_toMemeCaseWord)
-      .join(" ");
+    return removeExtraWhitespace(selectedText).split(" ").map(_toMemeCaseWord).join(" ");
   });
 };
 var replaceWhitespace = (str, replacement) => {
@@ -793,12 +693,8 @@ var toCamelCase = () => {
 };
 var sortLines = () => {
   transformAndReplaceSelectedText((selectedText) => {
-    return selectedText
-      .split(
-        `
-`
-      )
-      .sort((a, b) => a.localeCompare(b)).join(`
+    return selectedText.split(`
+`).sort((a, b) => a.localeCompare(b)).join(`
 `);
   });
 };
@@ -813,10 +709,7 @@ class MathEvaluator {
     this.numbers = this.splitBySeparator();
   }
   evaluate() {
-    const sanitizedExpression = this.trimmedText.replace(
-      /[^0-9+\-*/(). ]/g,
-      ""
-    );
+    const sanitizedExpression = this.trimmedText.replace(/[^0-9+\-*/(). ]/g, "");
     const result = eval(sanitizedExpression);
     return String(result);
   }
@@ -853,37 +746,37 @@ class MathEvaluator {
   }
 }
 var evaluateMathExpression = () => {
-  const mathEvaluator = new MathEvaluator();
+  const mathEvaluator = new MathEvaluator;
   transformAndReplaceSelectedText(() => {
     return mathEvaluator.evaluate();
   });
 };
 var sum = () => {
-  const mathEvaluator = new MathEvaluator();
+  const mathEvaluator = new MathEvaluator;
   transformAndReplaceSelectedText(() => {
     return mathEvaluator.sum();
   });
 };
 var product = () => {
-  const mathEvaluator = new MathEvaluator();
+  const mathEvaluator = new MathEvaluator;
   transformAndReplaceSelectedText(() => {
     return mathEvaluator.product();
   });
 };
 var max = () => {
-  const mathEvaluator = new MathEvaluator();
+  const mathEvaluator = new MathEvaluator;
   transformAndReplaceSelectedText(() => {
     return mathEvaluator.max();
   });
 };
 var min = () => {
-  const mathEvaluator = new MathEvaluator();
+  const mathEvaluator = new MathEvaluator;
   transformAndReplaceSelectedText(() => {
     return mathEvaluator.min();
   });
 };
 var mean = () => {
-  const mathEvaluator = new MathEvaluator();
+  const mathEvaluator = new MathEvaluator;
   transformAndReplaceSelectedText(() => {
     return mathEvaluator.mean();
   });
@@ -899,18 +792,14 @@ var copyAllTagsToClipboard = () => {
 async function manageOverdueTasks() {
   logCustomMessage("manageOverdueTasks() invoked. Starting process.");
   try {
-    logCustomMessage(
-      "Attempting to create and authorize Todoist credentials..."
-    );
+    logCustomMessage("Attempting to create and authorize Todoist credentials...");
     const credential = Credential.create("Todoist", "Todoist API Token");
     credential.addPasswordField("apiToken", "API Token");
     credential.authorize();
     logCustomMessage("Credentials authorized successfully.");
     logCustomMessage("System date/time is: " + new Date().toString());
     logCustomMessage("UTC date/time is: " + new Date().toUTCString());
-    logCustomMessage(
-      "Timezone offset (minutes): " + new Date().getTimezoneOffset().toString()
-    );
+    logCustomMessage("Timezone offset (minutes): " + new Date().getTimezoneOffset().toString());
     const TODOIST_API_TOKEN = credential.getValue("apiToken");
     const todoist = Todoist.create();
     todoist.token = TODOIST_API_TOKEN;
@@ -919,68 +808,50 @@ async function manageOverdueTasks() {
     const tasks = await todoist.getTasks({ filter: "overdue" });
     logCustomMessage("Retrieved " + tasks.length + " overdue tasks.");
     if (tasks.length > 0) {
-      const allTaskContents = tasks
-        .map((t) => t.id + ': "' + t.content + '"')
-        .join(", ");
+      const allTaskContents = tasks.map((t) => t.id + ': "' + t.content + '"').join(", ");
       logCustomMessage("Overdue tasks from Todoist: [" + allTaskContents + "]");
     }
     if (tasks.length === 0) {
       alert("No overdue tasks found.");
-      logCustomMessage(
-        "No overdue tasks retrieved from Todoist. Exiting script."
-      );
+      logCustomMessage("No overdue tasks retrieved from Todoist. Exiting script.");
       return;
     }
     const taskContents = tasks.map((task) => task.content);
     logCustomMessage("Creating prompt for user to select overdue tasks...");
-    const taskPrompt = new Prompt();
+    const taskPrompt = new Prompt;
     taskPrompt.title = "Overdue Tasks";
     taskPrompt.message = "Select overdue tasks to reschedule or complete:";
     taskPrompt.addSelect("selectedTasks", "Tasks", taskContents, [], true);
     taskPrompt.addButton("OK");
     const didShow = taskPrompt.show();
-    logCustomMessage(
-      "Task selection prompt displayed: " +
-        (didShow ? "User responded" : "User dismissed/canceled")
-    );
+    logCustomMessage("Task selection prompt displayed: " + (didShow ? "User responded" : "User dismissed/canceled"));
     if (didShow && taskPrompt.buttonPressed === "OK") {
-      const selectedTasks = tasks.filter((task) =>
-        taskPrompt.fieldValues["selectedTasks"].includes(task.content)
-      );
-      logCustomMessage(
-        "User selected " + selectedTasks.length + " tasks for processing."
-      );
+      const selectedTasks = tasks.filter((task) => taskPrompt.fieldValues["selectedTasks"].includes(task.content));
+      logCustomMessage("User selected " + selectedTasks.length + " tasks for processing.");
       if (selectedTasks.length === 0) {
         logCustomMessage("No tasks selected by the user. Exiting script.");
         alert("No tasks selected.");
         return;
       }
-      const actionPrompt = new Prompt();
+      const actionPrompt = new Prompt;
       actionPrompt.title = "Select Action";
       actionPrompt.message = "Choose an action for the selected tasks:";
       actionPrompt.addButton("Reschedule to Today");
       actionPrompt.addButton("Complete Tasks");
       const actionDidShow = actionPrompt.show();
-      logCustomMessage(
-        "Action prompt displayed: " +
-          (actionDidShow ? "User responded" : "User dismissed/canceled")
-      );
+      logCustomMessage("Action prompt displayed: " + (actionDidShow ? "User responded" : "User dismissed/canceled"));
       if (actionDidShow) {
         const userAction = actionPrompt.buttonPressed;
         logCustomMessage("User selected action: " + userAction);
         draft.setTemplateTag("OverdueTasksData", JSON.stringify(selectedTasks));
         draft.setTemplateTag("OverdueTasksAction", userAction);
         alert("Selections saved. Please run the next step to execute changes.");
-        logCustomMessage(
-          "manageOverdueTasks() completed user prompt logic successfully."
-        );
+        logCustomMessage("manageOverdueTasks() completed user prompt logic successfully.");
       } else {
         logCustomMessage("User cancelled the action prompt. Exiting script.");
       }
     } else {
-      logCustomMessage(
-        "User cancelled or dismissed the overdue tasks prompt. Exiting script."
-      );
+      logCustomMessage("User cancelled or dismissed the overdue tasks prompt. Exiting script.");
     }
   } catch (error) {
     logCustomMessage("Error in Manage Overdue Tasks script: " + error, true);
@@ -990,16 +861,14 @@ async function manageOverdueTasks() {
   }
 }
 function manageOverdueTasksAux() {
-  logCustomMessage(
-    "manageOverdueTasksAux() called. Additional logic could go here."
-  );
+  logCustomMessage("manageOverdueTasksAux() called. Additional logic could go here.");
 }
 
 // src/Actions/TaskActions/TaskMenu.ts
 var openTaskMenu = () => {
   logCustomMessage("TaskMenu: Starting menu prompt.");
   logCustomMessage("openTaskMenu() invoked - presenting the menu.");
-  const prompt = new Prompt();
+  const prompt = new Prompt;
   prompt.title = "Task Management Menu";
   prompt.message = "Select an option to manage your tasks:";
   prompt.addButton("Manage Overdue Tasks");
@@ -1017,25 +886,17 @@ var openTaskMenu = () => {
   logCustomMessage("openTaskMenu() user pressed: " + prompt.buttonPressed);
   switch (prompt.buttonPressed) {
     case "Manage Overdue Tasks":
-      logCustomMessage(
-        "User selected Manage Overdue Tasks - calling manageOverdueTasks()"
-      );
+      logCustomMessage("User selected Manage Overdue Tasks - calling manageOverdueTasks()");
       manageOverdueTasks();
       break;
     case "Manage Deadlines":
-      alert(
-        "You selected to manage deadlines. (Placeholder for ManageDeadlines action.)"
-      );
+      alert("You selected to manage deadlines. (Placeholder for ManageDeadlines action.)");
       break;
     case "Schedule Tasks for Tomorrow":
-      alert(
-        "You selected to schedule tasks for tomorrow. (Placeholder for scheduling tasks.)"
-      );
+      alert("You selected to schedule tasks for tomorrow. (Placeholder for scheduling tasks.)");
       break;
     case "Some Other Custom Action":
-      alert(
-        "You selected another custom action. (Placeholder for non-Todoist or other expansions.)"
-      );
+      alert("You selected another custom action. (Placeholder for non-Todoist or other expansions.)");
       break;
     default:
       logCustomMessage("TaskMenu: Unexpected button pressed.");
@@ -1052,76 +913,20 @@ function actionRunner() {
 async function rescheduleTasksToToday(todoistClient, tasks) {
   for (const task of tasks) {
     try {
-      logCustomMessage(
-        "Rescheduling task " + task.id + " to today via request()..."
-      );
-      const endpoint = "https://api.todoist.com/rest/v2/tasks/" + task.id;
-      const updateData = {
-        due_string: "today",
-        due_lang: "en",
-        content: task.content,
-      };
-      const response = await todoistClient.request({
-        url: endpoint,
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        data: updateData,
+      logCustomMessage("Rescheduling task " + task.id + " to today...");
+      await todoistClient.updateTask(task.id, {
+        due_string: "today at 23:59",
+        due_lang: "en"
       });
-      if (!response || response.statusCode !== 204) {
-        logCustomMessage(
-          `Task ${task.id} update did not return 204. Got ${response.statusCode}.`,
-          true
-        );
-        if (todoistClient.lastError) {
-          logCustomMessage(
-            `Todoist lastError: ${todoistClient.lastError}`,
-            true
-          );
-        }
-      } else {
-        logCustomMessage(
-          "Task " +
-            task.id +
-            " successfully rescheduled to today (via request)."
-        );
-      }
+      logCustomMessage("Task " + task.id + " successfully rescheduled to today.");
       const updatedTask = await todoistClient.getTask(task.id);
       if (!updatedTask?.due) {
-        logCustomMessage(
-          `Task ${task.id} has no due date after update. Something is off.`,
-          true
-        );
-        if (todoistClient.lastError) {
-          logCustomMessage(
-            `Todoist lastError: ${todoistClient.lastError}`,
-            true
-          );
-        }
+        logCustomMessage(`Task ${task.id} has no due date after update. Something is off.`, true);
       } else {
-        const today = new Date().toISOString().split("T")[0];
-        if (updatedTask.due.date !== today) {
-          const errorMessage = `Task ${task.id} due date ${updatedTask.due.date} is not today (${today}). Update failed.`;
-          logCustomMessage(errorMessage, true);
-          if (todoistClient.lastError) {
-            logCustomMessage(
-              `Todoist lastError: ${todoistClient.lastError}`,
-              true
-            );
-          }
-          context.fail(errorMessage);
-          return;
-        }
-        logCustomMessage(
-          `Task ${task.id} is now due on: ${updatedTask.due.date}`
-        );
+        logCustomMessage(`Task ${task.id} is now due on: ${updatedTask.due.date}`);
       }
     } catch (error) {
-      logCustomMessage(
-        "Error rescheduling task " + task.id + ": " + String(error),
-        true
-      );
+      logCustomMessage("Error rescheduling task " + task.id + ": " + String(error), true);
       alert("Error rescheduling task " + task.id + ": " + String(error));
     }
   }
@@ -1133,28 +938,19 @@ async function completeTasks(todoistClient, tasks) {
       await todoistClient.closeTask(task.id);
       logCustomMessage("Task " + task.id + " has been marked complete.");
     } catch (error) {
-      logCustomMessage(
-        "Error completing task " + task.id + ": " + String(error),
-        true
-      );
+      logCustomMessage("Error completing task " + task.id + ": " + String(error), true);
       alert("Error completing task " + task.id + ": " + String(error));
     }
   }
 }
 async function executeOverdueTasksAction() {
-  logCustomMessage(
-    "executeOverdueTasksAction() invoked. Starting execution step."
-  );
+  logCustomMessage("executeOverdueTasksAction() invoked. Starting execution step.");
   try {
     const selectedTasksData = draft.getTemplateTag("OverdueTasksData") || "";
     const selectedAction = draft.getTemplateTag("OverdueTasksAction") || "";
     if (!selectedTasksData || !selectedAction) {
-      logCustomMessage(
-        "No stored tasks or action found in template tags. Exiting."
-      );
-      alert(
-        "No overdue tasks or action found. Make sure you ran Step 1 first."
-      );
+      logCustomMessage("No stored tasks or action found in template tags. Exiting.");
+      alert("No overdue tasks or action found. Make sure you ran Step 1 first.");
       return;
     }
     const selectedTasks = JSON.parse(selectedTasksData);

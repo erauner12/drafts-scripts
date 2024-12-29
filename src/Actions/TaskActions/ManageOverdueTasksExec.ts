@@ -8,62 +8,21 @@ async function rescheduleTasksToToday(
 ): Promise<void> {
   for (const task of tasks) {
     try {
-      logCustomMessage(
-        "Rescheduling task " + task.id + " to today via request()..."
-      );
-      const endpoint = "https://api.todoist.com/rest/v2/tasks/" + task.id;
-      const updateData = {
-        due_date: new Date().toISOString().split("T")[0],
-        content: task.content,
-      };
-      const response = await todoistClient.request({
-        url: endpoint,
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        data: updateData,
+      logCustomMessage("Rescheduling task " + task.id + " to today...");
+      await todoistClient.updateTask(task.id, {
+        due_string: "today at 23:59",
+        due_lang: "en",
       });
-      logCustomMessage(`[HTTP] success: ${response.success}, status: ${response.statusCode}, error: ${response.error}, body: ${response.responseText}`);
-      if (!response || response.statusCode !== 204) {
-        logCustomMessage(
-          `Task ${task.id} update did not return 204. Got ${response.statusCode}.`,
-        );
-        if (todoistClient.lastError) {
-          logCustomMessage(
-            `Todoist lastError: ${todoistClient.lastError}`,
-          );
-        }
-      } else {
-        logCustomMessage(
-          "Task " +
-            task.id +
-            " successfully rescheduled to today (via request)."
-        );
-      }
+      logCustomMessage(
+        "Task " + task.id + " successfully rescheduled to today."
+      );
       const updatedTask = (await todoistClient.getTask(task.id)) as Task;
       if (!updatedTask?.due) {
         logCustomMessage(
           `Task ${task.id} has no due date after update. Something is off.`,
+          true
         );
-        if (todoistClient.lastError) {
-          logCustomMessage(
-            `Todoist lastError: ${todoistClient.lastError.}`,
-          );
-        }
       } else {
-        const today = new Date().toISOString().split("T")[0];
-        if (updatedTask.due.date !== today) {
-          const errorMessage = `Task ${task.id} due date ${updatedTask.due.date} is not today (${today}). Update failed.`;
-          logCustomMessage(errorMessage, true);
-          if (todoistClient.lastError) {
-            logCustomMessage(
-              `Todoist lastError: ${todoistClient.lastError}`,
-            );
-          }
-          context.fail(errorMessage);
-          return;
-        }
         logCustomMessage(
           `Task ${task.id} is now due on: ${updatedTask.due.date}`
         );
@@ -71,6 +30,7 @@ async function rescheduleTasksToToday(
     } catch (error) {
       logCustomMessage(
         "Error rescheduling task " + task.id + ": " + String(error),
+        true
       );
       alert("Error rescheduling task " + task.id + ": " + String(error));
     }
@@ -85,11 +45,11 @@ async function completeTasks(
     try {
       logCustomMessage("Completing task " + task.id + "...");
       await todoistClient.closeTask(task.id);
-      logCustomMessage(`[HTTP] lastError: ${todoistClient.lastError || ""}, lastResponse status: ${todoistClient.lastResponse?.statusCode}, body: ${todoistClient.lastResponse?.responseText}`);
       logCustomMessage("Task " + task.id + " has been marked complete.");
     } catch (error) {
       logCustomMessage(
         "Error completing task " + task.id + ": " + String(error),
+        true
       );
       alert("Error completing task " + task.id + ": " + String(error));
     }
@@ -129,8 +89,10 @@ export async function executeOverdueTasksAction(): Promise<void> {
     credential.authorize();
     logCustomMessage("Credentials authorized successfully.");
 
+    const TODOIST_API_TOKEN = credential.getValue("apiToken");
     const todoist = Todoist.create();
-    logCustomMessage("Todoist client initialized.");
+    todoist.token = TODOIST_API_TOKEN;
+    logCustomMessage("Todoist API token set.");
 
     // Perform the requested action
     if (selectedAction === "Reschedule to Today") {
