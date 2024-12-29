@@ -84,68 +84,21 @@ declare class Todoist {
 /**
  * Overdue tasks: tasks that are strictly behind schedule.
  */
-export async function handleOverdueTasks(todoist: Todoist): Promise<void> {
-  log("Starting overdue tasks management...");
-
-  let overdueTasks = await todoist.getTasks({ filter: "overdue" });
-  if (overdueTasks.length === 0) {
-    showAlert("No Overdue Tasks", "You have no overdue tasks to manage.");
-    log("No overdue tasks found.");
-    return;
-  }
-
-  log(`Found ${overdueTasks.length} overdue tasks.`);
-
-  for (let task of overdueTasks) {
-    let taskPrompt = new Prompt();
-    taskPrompt.title = "Manage Overdue Task";
-    taskPrompt.message = `Task: "${task.content}"\nOriginal due: ${
-      task.due ? task.due.string : "No date"
-    }`;
-
-    taskPrompt.addButton("Update to Today");
-    taskPrompt.addButton("Move to Future");
-    taskPrompt.addButton("Remove Due Date");
-    taskPrompt.addButton("Complete Task");
-    taskPrompt.addButton("Delete Task");
-    taskPrompt.addButton("Skip");
-
-    if (!taskPrompt.show()) {
-      continue;
-    }
-
-    switch (taskPrompt.buttonPressed) {
-      case "Update to Today":
-        await updateToToday(todoist, task);
-        break;
-      case "Move to Future":
-        await moveToFuture(todoist, task);
-        break;
-      case "Remove Due Date":
-        await removeDueDate(todoist, task);
-        break;
-      case "Complete Task":
-        await todoist.closeTask(task.id);
-        break;
-      case "Delete Task":
-        await todoist.closeTask(task.id);
-        break;
-      case "Skip":
-        continue;
-    }
-  }
-
-  showAlert("Completed", "Finished managing overdue tasks.");
+export async function handleOverdueTasks(
+  todoist: Todoist
+): Promise<TodoistTask[]> {
+  log("Fetching overdue tasks...");
+  const overdueTasks = await todoist.getTasks({ filter: "overdue" });
+  log(`Fetched ${overdueTasks.length} overdue tasks.`);
+  return overdueTasks;
 }
 
 /**
  * Tasks with deadlines: specifically for tasks that have a 'deadline' property set for today or tomorrow.
  * (Concept here is from the original 'Manage Deadline Tasks', but you can adjust as needed.)
  */
-export async function handleDeadlineTasks(todoist: Todoist): Promise<void> {
-  log("Starting deadline tasks management...");
-
-  log("Fetching all tasks...");
+export async function handleDeadlineTasks(todoist: Todoist): Promise<TodoistTask[]> {
+  log("Fetching tasks with deadlines for today or tomorrow...");
   let response = await todoist.request({
     url: "https://api.todoist.com/rest/v2/tasks",
     method: "GET",
@@ -154,16 +107,10 @@ export async function handleDeadlineTasks(todoist: Todoist): Promise<void> {
   if (!response.success) {
     log(`Failed to fetch tasks - Status code: ${response.statusCode}`, true);
     log(`Error: ${response.error}`);
-    showAlert(
-      "Error",
-      `Failed to fetch tasks from Todoist. Status code: ${response.statusCode}`
-    );
-    return;
+    return [];
   }
 
   let allTasks = response.responseData;
-  log(`Successfully fetched ${allTasks.length} total tasks`);
-
   let today = new Date();
   let tomorrow = new Date(today);
   tomorrow.setDate(tomorrow.getDate() + 1);
@@ -180,197 +127,31 @@ export async function handleDeadlineTasks(todoist: Todoist): Promise<void> {
   log(
     `Found ${deadlineTasks.length} tasks with deadlines for today or tomorrow`
   );
-
-  if (deadlineTasks.length === 0) {
-    log("No tasks with deadlines for today or tomorrow");
-    showAlert(
-      "No Deadline Tasks",
-      "No tasks with deadlines for today or tomorrow found."
-    );
-    return;
-  }
-
-  deadlineTasks.sort((a: any, b: any) => {
-    if (!a.deadline || !b.deadline) return 0;
-    return a.deadline.date.localeCompare(b.deadline.date);
-  });
-
-  for (let task of deadlineTasks) {
-    log(`Processing task: "${task.content}" (Deadline: ${task.deadline.date})`);
-    let taskPrompt = new Prompt();
-    taskPrompt.title = "Manage Deadline Task";
-    taskPrompt.message = `Task: "${task.content}"\nDeadline: ${
-      task.deadline.date
-    } (${task.deadline.date === todayStr ? "Today" : "Tomorrow"})`;
-
-    taskPrompt.addButton("Add Due Date");
-    taskPrompt.addButton("Adjust Deadline");
-    taskPrompt.addButton("Remove Deadline");
-    taskPrompt.addButton("Complete Task");
-    taskPrompt.addButton("Skip");
-
-    if (!taskPrompt.show()) {
-      log(`Skipped task: "${task.content}"`);
-      continue;
-    }
-
-    let success = false;
-    switch (taskPrompt.buttonPressed) {
-      case "Add Due Date":
-        success = await handleAddDueDate(todoist, task);
-        break;
-      case "Adjust Deadline":
-        success = await handleAdjustDeadline(todoist, task);
-        break;
-      case "Remove Deadline":
-        success = await handleRemoveDeadline(todoist, task);
-        break;
-      case "Complete Task":
-        success = await todoist.closeTask(task.id);
-        if (success) {
-          log(`Completed task: "${task.content}"`);
-        } else {
-          log(
-            `Failed to complete task: "${task.content}" - ${todoist.lastError}`,
-            true
-          );
-        }
-        break;
-      case "Skip":
-        log(`Skipped task: "${task.content}"`);
-        continue;
-    }
-
-    if (!success && taskPrompt.buttonPressed !== "Complete Task") {
-      log(`Failed to process task: "${task.content}"`, true);
-    }
-  }
-
-  showAlert("Completed", "Finished managing deadline tasks.");
+  return deadlineTasks;
 }
 
 /**
- * For tasks due today but no specific time assigned.
  * This is similar to "handleAssignTimeAndDuration" in the old code
  * but now we focus only on tasks lacking a 'due.datetime'.
  */
-export async function handleNoTimeTasks(
-  todoist: Todoist,
-  tasks: TodoistTask[]
-): Promise<void> {
-  if (tasks.length === 0) {
-    showAlert("No Tasks", "No tasks found without a due time.");
-    log("No tasks to assign due time and duration.");
-    return;
-  }
-
-  log(`Starting to assign due time for ${tasks.length} tasks (no time).`);
-
-  for (let task of tasks) {
-    log(
-      `Processing task: ${task.content} (due date: ${task.due?.date ?? "N/A"})`
-    );
-
-    let timePrompt = new Prompt();
-    timePrompt.title = "Assign Due Time";
-    timePrompt.message = `Assign a due time for:\n"${task.content}"`;
-
-    timePrompt.addDatePicker("dueTime", "Due Time", new Date(), {
-      mode: "time",
-    });
-
-    timePrompt.addButton("Morning (9 AM)");
-    timePrompt.addButton("Noon (12 PM)");
-    timePrompt.addButton("Use DatePicker Selection");
-    timePrompt.addButton("Skip");
-
-    if (!timePrompt.show()) {
-      log(`User skipped assigning due time for "${task.content}"`);
-      continue;
-    }
-
-    let dueTime: Date = timePrompt.fieldValues["dueTime"];
-    let [hours, minutes] = dueTime.toTimeString().split(" ")[0].split(":");
-
-    switch (timePrompt.buttonPressed) {
-      case "Morning (9 AM)":
-        hours = "09";
-        minutes = "00";
-        break;
-      case "Noon (12 PM)":
-        hours = "12";
-        minutes = "00";
-        break;
-      case "Use DatePicker Selection":
-        // use what is in 'dueTime'
-        break;
-      case "Skip":
-        log(`User chose to skip task: "${task.content}"`);
-        continue;
-    }
-
-    // build dueDateTime
-    let dueDateTime = new Date();
-    dueDateTime.setHours(parseInt(hours));
-    dueDateTime.setMinutes(parseInt(minutes));
-    dueDateTime.setSeconds(0);
-    let dueDateTimeRFC3339 = dueDateTime.toISOString();
-
-    let updateOptions: any = {
-      content: task.content,
-      due_datetime: dueDateTimeRFC3339,
-      due_string: `Today at ${hours}:${minutes}`,
-    };
-
-    let success = await todoist.updateTask(task.id, updateOptions);
-    if (!success) {
-      log(
-        `Failed to update due time for "${task.content}" - ${todoist.lastError}`,
-        true
-      );
-      continue;
-    }
-    log(`Updated due time for task: "${task.content}"`);
-  }
+export async function handleNoTimeTasks(todoist: Todoist): Promise<TodoistTask[]> {
+  log("Fetching tasks due today with no time set...");
+  let allTodayTasks = await todoist.getTasks({ filter: "due: today" });
+  let noTimeTasks = allTodayTasks.filter(t => !(t.due?.datetime));
+  log(`Found ${noTimeTasks.length} tasks due today with no time.`);
+  return noTimeTasks;
 }
 
 /**
  * For tasks due today that have no 'duration' assigned.
  * This is somewhat like the old handleAssignDuration but specialized.
  */
-export async function handleNoDurationTasks(
-  todoist: Todoist,
-  tasks: TodoistTask[]
-): Promise<void> {
-  if (tasks.length === 0) {
-    showAlert("No Tasks", "No tasks found without a duration.");
-    log("No tasks to assign duration.");
-    return;
-  }
-
-  log(`Starting to assign durations for ${tasks.length} tasks (no duration).`);
-  let remainingTasks = [...tasks];
-
-  while (remainingTasks.length > 0) {
-    let selectedTask = showTaskSelectionPrompt(remainingTasks);
-    if (!selectedTask) {
-      log("User cancelled the task selection prompt.");
-      break;
-    }
-
-    log(`User selected task: "${selectedTask.content}"`);
-    let assignSuccess = await assignDurationToTask(todoist, selectedTask);
-    if (assignSuccess) {
-      log(`Successfully assigned duration to "${selectedTask.content}"`);
-    } else {
-      log(`Failed to assign duration to "${selectedTask.content}"`, true);
-    }
-
-    remainingTasks = remainingTasks.filter((t) => t.id !== selectedTask.id);
-  }
-
-  log("Completed assigning durations.");
-  showAlert("Completed", "Finished assigning durations.");
+export async function handleNoDurationTasks(todoist: Todoist): Promise<TodoistTask[]> {
+  log("Fetching tasks due today with no duration...");
+  let allTodayTasks = await todoist.getTasks({ filter: "due: today" });
+  let noDurationTasks = allTodayTasks.filter(t => !t.duration);
+  log(`Found ${noDurationTasks.length} tasks due today with no duration.`);
+  return noDurationTasks;
 }
 
 // INTERNAL HELPER FUNCTIONS

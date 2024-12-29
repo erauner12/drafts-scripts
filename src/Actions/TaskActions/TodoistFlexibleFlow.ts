@@ -84,37 +84,35 @@ declare class Todoist {
  *
  * @param filter Filter string for Todoist tasks, e.g. "overdue" or "due: today"
  */
-export async function selectTasksStep(filter: string): Promise<void> {
-  log(`selectTasksStep() started. Filter used: "${filter}"`);
+export async function selectTasksStep(): Promise<void> {
+  log("selectTasksStep() started. Reading tasks from 'TasksForSelection' template tag.");
 
   try {
-    // Get Todoist instance with credentials
-    const todoist = getTodoistCredential();
-
-    // 1) Retrieve tasks from Todoist using the filter
-    log(`Fetching tasks with filter: "${filter}"...`);
-    const tasks = await todoist.getTasks({ filter });
-    log(`Found ${tasks.length} tasks with filter: "${filter}"`);
-
-    if (tasks.length === 0) {
-      alert(`No tasks found with filter: ${filter}`);
+    const tasksData = draft.getTemplateTag("TasksForSelection") || "";
+    if (!tasksData) {
+      alert(
+        "No tasks found in 'TasksForSelection'. Did you run the previous step?"
+      );
       script.complete();
       return;
     }
 
-    // 2) Let user select from the tasks
+    const tasks: TodoistTask[] = JSON.parse(tasksData);
+    log(`Found ${tasks.length} tasks from template tag to select from.`);
+
+    if (tasks.length === 0) {
+      alert("No tasks to select from.");
+      script.complete();
+      return;
+    }
+
+    // 1) Let user select from the tasks
     const taskTitles = tasks.map((t) => t.content);
 
     const prompt = new Prompt();
-    prompt.title = `Select Tasks (${filter})`;
+    prompt.title = "Select Tasks";
     prompt.message = "Select one or more tasks to act on.";
-    prompt.addSelect(
-      "selectedTasks",
-      "Tasks",
-      taskTitles,
-      [],
-      /* allowMultiple: */ true
-    );
+    prompt.addSelect("selectedTasks", "Tasks", taskTitles, [], true);
     prompt.addButton("OK");
     prompt.addButton("Cancel");
 
@@ -125,7 +123,7 @@ export async function selectTasksStep(filter: string): Promise<void> {
       return;
     }
 
-    // 3) Get selected tasks from user input
+    // 2) Get selected tasks from user input
     const selectedContents = prompt.fieldValues["selectedTasks"] || [];
     if (!Array.isArray(selectedContents) || selectedContents.length === 0) {
       alert("No tasks selected.");
@@ -138,7 +136,7 @@ export async function selectTasksStep(filter: string): Promise<void> {
       selectedContents.includes(t.content)
     );
 
-    // 4) Prompt user for an action: e.g. "Reschedule to Today", "Complete", etc.
+    // 3) Prompt user for an action
     const actionPrompt = new Prompt();
     actionPrompt.title = "Select Action";
     actionPrompt.message = "Choose an action for the selected tasks:";
@@ -157,7 +155,7 @@ export async function selectTasksStep(filter: string): Promise<void> {
     const chosenAction = actionPrompt.buttonPressed;
     log(`User selected action: "${chosenAction}"`);
 
-    // 5) Store the selected tasks + user action in template tags for next step
+    // 4) Store the selected tasks + user action in template tags
     draft.setTemplateTag("SelectedTasksData", JSON.stringify(selectedTasks));
     draft.setTemplateTag("SelectedTasksAction", chosenAction);
 
