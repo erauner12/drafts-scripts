@@ -69,12 +69,18 @@ export {
 
 export { copyAllTagsToClipboard } from "./actions-shortcuts";
 
+export { actionRunner } from "./Actions/TaskActions/ActionRunner";
 
+
+export {
+  manageOverdueTasks,
+  manageOverdueTasksAux,
+} from "./Actions/TaskActions/ManageOverdueTasks";
+
+export { executeOverdueTasksAction } from "./Actions/TaskActions/ManageOverdueTasksExec";
 
 export { openTaskMenu } from "./Actions/TaskActions/TaskMenu";
-
-
-export { runSegmentedTasksMenu } from "./Actions/TaskActions/TodoistEnhancedMenu";
+export { runTodoistEnhancedMenu } from "./Actions/TaskActions/TodoistEnhancedMenu";
 
 // New flexible flow approach
 export { executeSelectedTasksStep, selectTasksStep } from "./Actions/TaskActions/TodoistFlexibleFlow";
