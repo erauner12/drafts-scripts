@@ -1305,7 +1305,6 @@ async function setPriorityFlag(todoist, tasks) {
     }
   }
 }
-
 function getActionsForFilter(filterName) {
   switch (filterName) {
     case "NoTime":
@@ -1327,4 +1326,174 @@ function getActionsForFilter(filterName) {
         "Assign Duration"
       ];
   }
+}
+// src/Actions/TaskActions/DailyDriverMenu.ts
+async function runDailyDriverMenu() {
+  const todoist = getTodoistCredential();
+  const mainPrompt = new Prompt;
+  mainPrompt.title = "Daily Driver";
+  mainPrompt.message = "Quickly manage tasks for today. Choose an option:";
+  mainPrompt.addButton("Handle Overdue Tasks Individually");
+  mainPrompt.addButton("Shift Entire Day’s Schedule");
+  mainPrompt.addButton("Complete All Overdue Tasks");
+  mainPrompt.addButton("Cancel");
+  if (!mainPrompt.show() || mainPrompt.buttonPressed === "Cancel") {
+    log("User canceled the daily driver menu.");
+    script.complete();
+    return;
+  }
+  try {
+    switch (mainPrompt.buttonPressed) {
+      case "Handle Overdue Tasks Individually":
+        await handleOverdueTasksIndividually(todoist);
+        break;
+      case "Shift Entire Day’s Schedule":
+        await shiftAllTodayTasksBy(todoist);
+        break;
+      case "Complete All Overdue Tasks":
+        await completeAllOverdueTasks(todoist);
+        break;
+    }
+  } catch (err) {
+    log("Error in DailyDriverMenu: " + String(err), true);
+  }
+  script.complete();
+}
+async function handleOverdueTasksIndividually(todoist) {
+  log("Fetching overdue tasks for today...");
+  const overdueTasks = await todoist.getTasks({ filter: "overdue | today" });
+  if (!overdueTasks || overdueTasks.length === 0) {
+    showAlert("No Overdue Tasks", "You have no overdue tasks for today.");
+    return;
+  }
+  for (const task of overdueTasks) {
+    log(`Processing overdue task: ${task.content}`);
+    const p = new Prompt;
+    p.title = "Overdue Task";
+    p.message = `Task: "${task.content}"
+Choose an action:`;
+    p.addButton("Reschedule to Later Today");
+    p.addButton("Reschedule to Tomorrow");
+    p.addButton("Remove Due Date");
+    p.addButton("Complete Task");
+    p.addButton("Skip");
+    if (!p.show() || p.buttonPressed === "Skip") {
+      log(`Skipping task "${task.content}"`);
+      continue;
+    }
+    switch (p.buttonPressed) {
+      case "Reschedule to Later Today": {
+        const updateOptions = {
+          content: task.content,
+          due_string: "today 6pm"
+        };
+        await todoist.updateTask(task.id, updateOptions);
+        log(`Rescheduled "${task.content}" to later today.`);
+        break;
+      }
+      case "Reschedule to Tomorrow":
+        await todoist.updateTask(task.id, {
+          content: task.content,
+          due_string: "tomorrow"
+        });
+        log(`Rescheduled "${task.content}" to tomorrow.`);
+        break;
+      case "Remove Due Date":
+        await todoist.updateTask(task.id, {
+          content: task.content,
+          due_string: "no date"
+        });
+        log(`Removed due date from "${task.content}".`);
+        break;
+      case "Complete Task":
+        await todoist.closeTask(task.id);
+        log(`Completed "${task.content}".`);
+        break;
+    }
+  }
+}
+async function shiftAllTodayTasksBy(todoist) {
+  log("Fetching tasks for today to shift them...");
+  const todayTasks = await todoist.getTasks({ filter: "due: today" });
+  if (!todayTasks || todayTasks.length === 0) {
+    showAlert("No Today Tasks", "You have no tasks scheduled for today.");
+    return;
+  }
+  const p = new Prompt;
+  p.title = "Shift Today’s Tasks";
+  p.message = "Enter how many minutes to push all tasks forward:";
+  p.addButton("15");
+  p.addButton("30");
+  p.addButton("45");
+  p.addButton("60");
+  p.addButton("Custom");
+  p.addButton("Cancel");
+  if (!p.show() || p.buttonPressed === "Cancel") {
+    log("User canceled shifting tasks.");
+    return;
+  }
+  let shiftMinutes = 0;
+  switch (p.buttonPressed) {
+    case "15":
+    case "30":
+    case "45":
+    case "60":
+      shiftMinutes = parseInt(p.buttonPressed);
+      break;
+    case "Custom": {
+      const customPrompt = new Prompt;
+      customPrompt.title = "Custom Shift";
+      customPrompt.message = "Enter number of minutes to shift tasks:";
+      customPrompt.addButton("OK");
+      customPrompt.addButton("Cancel");
+      if (!customPrompt.show() || customPrompt.buttonPressed === "Cancel") {
+        log("User canceled custom shift.");
+        return;
+      }
+      showAlert("Not Implemented", "Custom input for shifting is not yet implemented in this example.");
+      return;
+    }
+  }
+  for (const task of todayTasks) {
+    if (task.due?.datetime) {
+      try {
+        const oldTime = new Date(task.due.datetime);
+        oldTime.setMinutes(oldTime.getMinutes() + shiftMinutes);
+        const newTimeISO = oldTime.toISOString();
+        const success = await todoist.updateTask(task.id, {
+          content: task.content,
+          due_datetime: newTimeISO
+        });
+        if (!success) {
+          log(`Failed to shift task ${task.content}`, true);
+        } else {
+          log(`Shifted "${task.content}" by ${shiftMinutes} minutes.`);
+        }
+      } catch (err) {
+        log(`Error shifting "${task.content}": ${String(err)}`, true);
+      }
+    }
+  }
+  showAlert("Tasks Shifted", `All tasks for today have been shifted by ${shiftMinutes} minutes.`);
+}
+async function completeAllOverdueTasks(todoist) {
+  log("Fetching overdue tasks to mark complete...");
+  const overdueTasks = await todoist.getTasks({ filter: "overdue" });
+  if (!overdueTasks || overdueTasks.length === 0) {
+    showAlert("No Overdue Tasks", "You have no overdue tasks to complete.");
+    return;
+  }
+  for (const task of overdueTasks) {
+    try {
+      const closeSuccess = await todoist.closeTask(task.id);
+      if (!closeSuccess) {
+        log(`Failed to complete "${task.content}"`, true);
+      } else {
+        log(`Completed overdue task "${task.content}".`);
+      }
+    } catch (err) {
+      log(`Error completing overdue task: ${String(err)}`, true);
+    }
+  }
+  showAlert("Overdue Tasks Completed", "All overdue tasks have been closed.");
 }
