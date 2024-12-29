@@ -1,7 +1,7 @@
 /**
  * ManageOverdueTasks.ts
  *
- * Placeholder for an action-specific script to manage overdue tasks.
+ * Script to manage overdue tasks. Additional logging is added for clarity.
  */
 
 // Declarations for unknown Drafts types and global functions
@@ -12,35 +12,46 @@ declare var Credential: any;
 declare var Todoist: any;
 declare var context: any; // used for context.cancel()
 declare var Prompt: any;
+declare var Draft: any;
 
 /**
- * Runs the Manage Overdue Tasks action.
+ * Runs the Manage Overdue Tasks action with more detailed logging.
  */
 export async function manageOverdueTasks(): Promise<void> {
+  logCustomMessage("manageOverdueTasks() invoked. Starting process.");
+
+  // Some shared helper function used by other scripts. Possibly sets up environment or config.
   someSharedHelperFunction();
-  logCustomMessage("Manage Overdue Items script started.");
+  logCustomMessage("someSharedHelperFunction() executed. Proceeding.");
 
   try {
-    // Initialize Todoist credentials
+    logCustomMessage(
+      "Attempting to create and authorize Todoist credentials..."
+    );
     const credential = Credential.create("Todoist", "Todoist API Token");
     credential.addPasswordField("apiToken", "API Token");
     credential.authorize();
+    logCustomMessage("Credentials authorized successfully.");
 
     const TODOIST_API_TOKEN = credential.getValue("apiToken");
     const todoist = Todoist.create();
     todoist.token = TODOIST_API_TOKEN;
+    logCustomMessage("Todoist API token set.");
 
+    logCustomMessage("Fetching tasks filtered by 'overdue'...");
     const tasks = await todoist.getTasks({ filter: "overdue" });
-    logCustomMessage("Retrieved " + tasks.length + " overdue tasks");
+    logCustomMessage("Retrieved " + tasks.length + " overdue tasks.");
 
     if (tasks.length === 0) {
       alert("No overdue tasks found.");
-      logCustomMessage("No overdue tasks retrieved from Todoist.");
+      logCustomMessage(
+        "No overdue tasks retrieved from Todoist. Exiting script."
+      );
       return;
     }
 
-    // Collect task contents
     const taskContents = tasks.map((task: any) => task.content);
+    logCustomMessage("Creating prompt for user to select overdue tasks...");
 
     // Prompt user to select tasks
     const taskPrompt = new Prompt();
@@ -49,14 +60,22 @@ export async function manageOverdueTasks(): Promise<void> {
     taskPrompt.addSelect("selectedTasks", "Tasks", taskContents, [], true);
     taskPrompt.addButton("OK");
 
-    if (taskPrompt.show() && taskPrompt.buttonPressed === "OK") {
+    const didShow = taskPrompt.show();
+    logCustomMessage(
+      "Task selection prompt displayed: " +
+        (didShow ? "User responded" : "User dismissed/canceled")
+    );
+
+    if (didShow && taskPrompt.buttonPressed === "OK") {
       const selectedTasks = tasks.filter((task: any) =>
         taskPrompt.fieldValues["selectedTasks"].includes(task.content)
       );
-      logCustomMessage("User selected " + selectedTasks.length + " tasks");
+      logCustomMessage(
+        "User selected " + selectedTasks.length + " tasks for processing."
+      );
 
       if (selectedTasks.length === 0) {
-        logCustomMessage("No tasks selected by the user.");
+        logCustomMessage("No tasks selected by the user. Exiting script.");
         alert("No tasks selected.");
         return;
       }
@@ -68,12 +87,17 @@ export async function manageOverdueTasks(): Promise<void> {
       actionPrompt.addButton("Reschedule to Today");
       actionPrompt.addButton("Complete Tasks");
 
-      if (actionPrompt.show()) {
+      const actionDidShow = actionPrompt.show();
+      logCustomMessage(
+        "Action prompt displayed: " +
+          (actionDidShow ? "User responded" : "User dismissed/canceled")
+      );
+
+      if (actionDidShow) {
         const userAction = actionPrompt.buttonPressed;
         logCustomMessage("User selected action: " + userAction);
 
-        // Prepare the temporary draft
-        // (In Drafts, you might create a new draft to hold these values)
+        // Prepare the temporary draft to hold data
         // @ts-ignore
         const tempDraft = Draft.create();
         tempDraft.addTag("temp");
@@ -84,26 +108,40 @@ export async function manageOverdueTasks(): Promise<void> {
         );
         tempDraft.update();
 
-        // If there's an executor function defined, call it here:
+        logCustomMessage(
+          "Temporary draft created with user selections. ID: " + tempDraft.uuid
+        );
+
+        // Potentially pass these to an executor function if desired.
         // ExecutorLib_execute(tempDraft);
-        // Placeholder for user logic
+
         alert(
           "Placeholder: tasks would be processed in ExecutorLib_execute()."
         );
+        logCustomMessage(
+          "manageOverdueTasks() completed user prompt logic successfully."
+        );
       } else {
-        logCustomMessage("User cancelled the action prompt.");
+        logCustomMessage("User cancelled the action prompt. Exiting script.");
       }
+    } else {
+      logCustomMessage(
+        "User cancelled or dismissed the overdue tasks prompt. Exiting script."
+      );
     }
   } catch (error: any) {
     logCustomMessage("Error in Manage Overdue Tasks script: " + error, true);
     alert("An error occurred: " + error);
+  } finally {
+    logCustomMessage("manageOverdueTasks() end of script reached. Finalizing.");
   }
 }
 
 /**
- * Example extra placeholder function
+ * Example extra placeholder function for demonstration. Additional logging added.
  */
 export function manageOverdueTasksAux(): void {
-  // Example placeholder
-  logCustomMessage("ManageOverdueTasks_aux() called!");
+  logCustomMessage(
+    "manageOverdueTasksAux() called. Additional logic could go here."
+  );
 }
