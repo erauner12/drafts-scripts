@@ -827,6 +827,9 @@ async function manageOverdueTasks() {
     credential.addPasswordField("apiToken", "API Token");
     credential.authorize();
     logCustomMessage("Credentials authorized successfully.");
+    logCustomMessage("System date/time is: " + new Date().toString());
+    logCustomMessage("UTC date/time is: " + new Date().toUTCString());
+    logCustomMessage("Timezone offset (minutes): " + new Date().getTimezoneOffset().toString());
     const TODOIST_API_TOKEN = credential.getValue("apiToken");
     const todoist = Todoist.create();
     todoist.token = TODOIST_API_TOKEN;
