@@ -136,17 +136,28 @@ async function handleOverdueTasksIndividually(todoist: Todoist): Promise<void> {
     switch (p.buttonPressed) {
       case "Reschedule to Later Today": {
         if (task.due?.is_recurring) {
-          // For recurring tasks, set the date/time via due_date + due_datetime
           const laterToday = new Date();
           laterToday.setHours(18, 0, 0, 0); // 6pm
-          await todoist.updateTask(task.id, {
-            content: task.content,
-            due_date: laterToday.toISOString().split("T")[0],
-            due_datetime: laterToday.toISOString()
-          });
-          log(
-            `Rescheduled recurring task "${task.content}" to later today via due_date/due_datetime.`
-          );
+
+          // If the task already has a due.datetime, we'll only set due_datetime.
+          // If it only has due.date, we'll only set due_date.
+          if (task.due?.datetime) {
+            await todoist.updateTask(task.id, {
+              content: task.content,
+              due_datetime: laterToday.toISOString(),
+            });
+            log(
+              `Rescheduled recurring task "${task.content}" (with due_datetime) to later today.`
+            );
+          } else {
+            await todoist.updateTask(task.id, {
+              content: task.content,
+              due_date: laterToday.toISOString().split("T")[0],
+            });
+            log(
+              `Rescheduled recurring task "${task.content}" (with due_date) to later today.`
+            );
+          }
         } else {
           const updateOptions = {
             content: task.content,
@@ -162,14 +173,26 @@ async function handleOverdueTasksIndividually(todoist: Todoist): Promise<void> {
           const tomorrow = new Date();
           tomorrow.setDate(tomorrow.getDate() + 1);
           tomorrow.setHours(9, 0, 0, 0); // e.g., 9am tomorrow
-          await todoist.updateTask(task.id, {
-            content: task.content,
-            due_date: tomorrow.toISOString().split("T")[0],
-            due_datetime: tomorrow.toISOString()
-          });
-          log(
-            `Rescheduled recurring task "${task.content}" to tomorrow via due_date/due_datetime.`
-          );
+
+          if (task.due?.datetime) {
+            // Recurring with existing time
+            await todoist.updateTask(task.id, {
+              content: task.content,
+              due_datetime: tomorrow.toISOString(),
+            });
+            log(
+              `Rescheduled recurring task "${task.content}" (with due_datetime) to tomorrow.`
+            );
+          } else {
+            // Recurring but only date
+            await todoist.updateTask(task.id, {
+              content: task.content,
+              due_date: tomorrow.toISOString().split("T")[0],
+            });
+            log(
+              `Rescheduled recurring task "${task.content}" (with due_date) to tomorrow.`
+            );
+          }
         } else {
           await todoist.updateTask(task.id, {
             content: task.content,
@@ -181,15 +204,20 @@ async function handleOverdueTasksIndividually(todoist: Todoist): Promise<void> {
       }
       case "Remove Due Date": {
         if (task.due?.is_recurring) {
-          // For recurring tasks, set due_date/due_datetime to null
-          await todoist.updateTask(task.id, {
-            content: task.content,
-            due_date: null,
-            due_datetime: null
-          });
-          log(
-            `Removed due date (recurring) from "${task.content}" by nulling due_date/due_datetime.`
-          );
+          // If it has a datetime, null that; otherwise, if it only has date, null date
+          if (task.due?.datetime) {
+            await todoist.updateTask(task.id, {
+              content: task.content,
+              due_datetime: null,
+            });
+            log(`Removed due datetime from recurring task "${task.content}".`);
+          } else {
+            await todoist.updateTask(task.id, {
+              content: task.content,
+              due_date: null,
+            });
+            log(`Removed due date from recurring task "${task.content}".`);
+          }
         } else {
           await todoist.updateTask(task.id, {
             content: task.content,

@@ -1386,12 +1386,19 @@ Choose an action:`;
         if (task.due?.is_recurring) {
           const laterToday = new Date;
           laterToday.setHours(18, 0, 0, 0);
-          await todoist.updateTask(task.id, {
-            content: task.content,
-            due_date: laterToday.toISOString().split("T")[0],
-            due_datetime: laterToday.toISOString()
-          });
-          log(`Rescheduled recurring task "${task.content}" to later today via due_date/due_datetime.`);
+          if (task.due?.datetime) {
+            await todoist.updateTask(task.id, {
+              content: task.content,
+              due_datetime: laterToday.toISOString()
+            });
+            log(`Rescheduled recurring task "${task.content}" (with due_datetime) to later today.`);
+          } else {
+            await todoist.updateTask(task.id, {
+              content: task.content,
+              due_date: laterToday.toISOString().split("T")[0]
+            });
+            log(`Rescheduled recurring task "${task.content}" (with due_date) to later today.`);
+          }
         } else {
           const updateOptions = {
             content: task.content,
@@ -1407,12 +1414,19 @@ Choose an action:`;
           const tomorrow = new Date;
           tomorrow.setDate(tomorrow.getDate() + 1);
           tomorrow.setHours(9, 0, 0, 0);
-          await todoist.updateTask(task.id, {
-            content: task.content,
-            due_date: tomorrow.toISOString().split("T")[0],
-            due_datetime: tomorrow.toISOString()
-          });
-          log(`Rescheduled recurring task "${task.content}" to tomorrow via due_date/due_datetime.`);
+          if (task.due?.datetime) {
+            await todoist.updateTask(task.id, {
+              content: task.content,
+              due_datetime: tomorrow.toISOString()
+            });
+            log(`Rescheduled recurring task "${task.content}" (with due_datetime) to tomorrow.`);
+          } else {
+            await todoist.updateTask(task.id, {
+              content: task.content,
+              due_date: tomorrow.toISOString().split("T")[0]
+            });
+            log(`Rescheduled recurring task "${task.content}" (with due_date) to tomorrow.`);
+          }
         } else {
           await todoist.updateTask(task.id, {
             content: task.content,
@@ -1424,12 +1438,19 @@ Choose an action:`;
       }
       case "Remove Due Date": {
         if (task.due?.is_recurring) {
-          await todoist.updateTask(task.id, {
-            content: task.content,
-            due_date: null,
-            due_datetime: null
-          });
-          log(`Removed due date (recurring) from "${task.content}" by nulling due_date/due_datetime.`);
+          if (task.due?.datetime) {
+            await todoist.updateTask(task.id, {
+              content: task.content,
+              due_datetime: null
+            });
+            log(`Removed due datetime from recurring task "${task.content}".`);
+          } else {
+            await todoist.updateTask(task.id, {
+              content: task.content,
+              due_date: null
+            });
+            log(`Removed due date from recurring task "${task.content}".`);
+          }
         } else {
           await todoist.updateTask(task.id, {
             content: task.content,
