@@ -68,3 +68,8 @@ export {
 } from "./actions-transform-math";
 
 export { copyAllTagsToClipboard } from "./actions-shortcuts";
+export { ActionRunner_run } from "./Actions/TaskActions/ActionRunner";
+export { ManageOverdueTasks_run } from "./Actions/TaskActions/ManageOverdueTasks";
+export { TaskMenu_run } from "./Actions/TaskActions/TaskMenu";
+
+globalThis.TaskMenu_run = TaskMenu_run;
