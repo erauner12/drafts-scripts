@@ -1319,7 +1319,9 @@ async function runTodoistEnhancedMenu() {
   log("Fetching tasks due today...");
   let allTasks = [];
   try {
-    allTasks = await todoist.getTasks({ filter: "due: today" });
+    allTasks = await todoist.getTasks({
+      filter: "due: today"
+    });
     log(`Fetched ${allTasks.length} tasks due today.`);
   } catch (error) {
     log(`Unhandled error while fetching today's tasks: ${error}`, true);

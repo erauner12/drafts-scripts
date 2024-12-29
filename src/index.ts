@@ -74,4 +74,4 @@ export { copyAllTagsToClipboard } from "./actions-shortcuts";
 export { runTodoistEnhancedMenu } from "./Actions/TaskActions/TodoistEnhancedMenu";
 
 // New flexible flow approach
-export { executeSelectedTasksStep, selectTasksStep } from "./Actions/TaskActions/TodoistFlexibleFlow";
+export { executeSelectedTasksStep } from "./Actions/TaskActions/TodoistFlexibleFlow";

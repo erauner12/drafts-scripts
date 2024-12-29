@@ -19,6 +19,13 @@ interface TodoistTask {
   duration?: any;
 }
 
+interface Todoist {
+  getTasks(options: { filter: string }): Promise<TodoistTask[]>;
+  updateTask(taskId: number, options: any): Promise<boolean>;
+  lastError?: string;
+  token: string;
+}
+
 export async function runTodoistEnhancedMenu(): Promise<void> {
   const todoist = getTodoistCredential();
 
@@ -30,7 +37,9 @@ export async function runTodoistEnhancedMenu(): Promise<void> {
   log("Fetching tasks due today...");
   let allTasks: TodoistTask[] = [];
   try {
-    allTasks = await todoist.getTasks({ filter: "due: today" });
+    allTasks = (await todoist.getTasks({
+      filter: "due: today",
+    })) as TodoistTask[];
     log(`Fetched ${allTasks.length} tasks due today.`);
   } catch (error) {
     log(`Unhandled error while fetching today's tasks: ${error}`, true);
