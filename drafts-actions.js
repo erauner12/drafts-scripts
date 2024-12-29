@@ -795,6 +795,12 @@ async function rescheduleTasksToToday(todoistClient, tasks) {
       logCustomMessage("Rescheduling task " + task.id + " to today...");
       await todoistClient.updateTask(task.id, { due_string: "today" });
       logCustomMessage("Task " + task.id + " successfully rescheduled to today.");
+      const updatedTask = await todoistClient.getTask(task.id);
+      if (!updatedTask?.due) {
+        logCustomMessage(`Task ${task.id} has no due date after update. Something is off.`, true);
+      } else {
+        logCustomMessage(`Task ${task.id} is now due on: ${updatedTask.due.date}`);
+      }
     } catch (error) {
       logCustomMessage("Error rescheduling task " + task.id + ": " + String(error), true);
       alert("Error rescheduling task " + task.id + ": " + String(error));
@@ -826,7 +832,7 @@ async function manageOverdueTasks() {
     todoist.token = TODOIST_API_TOKEN;
     logCustomMessage("Todoist API token set.");
     logCustomMessage("Fetching tasks filtered by 'overdue'...");
-    const tasks = await todoist.getTasks({ filter: "overdue" });
+    const tasks = todoist.getTasks({ filter: "overdue" });
     logCustomMessage("Retrieved " + tasks.length + " overdue tasks.");
     if (tasks.length > 0) {
       const allTaskContents = tasks.map((t) => t.id + ': "' + t.content + '"').join(", ");

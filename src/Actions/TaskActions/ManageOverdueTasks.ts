@@ -23,10 +23,23 @@ async function rescheduleTasksToToday(
   for (const task of tasks) {
     try {
       logCustomMessage("Rescheduling task " + task.id + " to today...");
-      todoistClient.updateTask(task.id, { due_string: "today" });
+      await todoistClient.updateTask(task.id, { due_string: "today" });
       logCustomMessage(
         "Task " + task.id + " successfully rescheduled to today."
       );
+
+      const updatedTask = (await todoistClient.getTask(task.id)) as Task;
+      if (!updatedTask?.due) {
+        logCustomMessage(
+          `Task ${task.id} has no due date after update. Something is off.`,
+          true
+        );
+      } else {
+        logCustomMessage(
+          `Task ${task.id} is now due on: ${updatedTask.due.date}`
+        );
+      }
+
     } catch (error) {
       logCustomMessage(
         "Error rescheduling task " + task.id + ": " + String(error),
