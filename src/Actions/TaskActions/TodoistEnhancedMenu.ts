@@ -49,15 +49,19 @@ export async function runTodoistEnhancedMenu(): Promise<void> {
 
   switch (mainPrompt.buttonPressed) {
     case "Tasks Due Today (No Time)":
+      draft.setTemplateTag("TasksFilterUsed", "NoTime");
       tasksToStore = await handleNoTimeTasks(todoist);
       break;
     case "Tasks Due Today (No Duration)":
+      draft.setTemplateTag("TasksFilterUsed", "NoDuration");
       tasksToStore = await handleNoDurationTasks(todoist);
       break;
     case "Overdue Tasks":
+      draft.setTemplateTag("TasksFilterUsed", "Overdue");
       tasksToStore = await handleOverdueTasks(todoist);
       break;
     case "Deadline Tasks (Today/Tomorrow)":
+      draft.setTemplateTag("TasksFilterUsed", "Deadline");
       tasksToStore = await handleDeadlineTasks(todoist);
       break;
   }

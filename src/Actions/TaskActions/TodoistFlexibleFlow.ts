@@ -142,16 +142,16 @@ export async function selectTasksStep(): Promise<void> {
     );
 
     // 3) Prompt user for an action
+    const filterUsed = draft.getTemplateTag("TasksFilterUsed") || "";
+    const relevantActions = getActionsForFilter(filterUsed);
+
     const actionPrompt = new Prompt();
     actionPrompt.title = "Select Action";
     actionPrompt.message = "Choose an action for the selected tasks:";
-    actionPrompt.addButton("Reschedule to Today");
-    actionPrompt.addButton("Reschedule to Tomorrow");
-    actionPrompt.addButton("Reschedule to Future");
-    actionPrompt.addButton("Complete Tasks");
-    actionPrompt.addButton("Remove Due Date");
-    actionPrompt.addButton("Add Priority Flag");
-    actionPrompt.addButton("Assign Duration");
+
+    for (const action of relevantActions) {
+      actionPrompt.addButton(action);
+    }
     actionPrompt.addButton("Cancel");
 
     const actionDidShow = actionPrompt.show();
@@ -330,5 +330,29 @@ async function setPriorityFlag(todoist: Todoist, tasks: TodoistTask[]) {
         true
       );
     }
+  }
+}
+
+function getActionsForFilter(filterName: string): string[] {
+  // Adjust these mappings as needed:
+  switch (filterName) {
+    case "NoTime":
+      return ["Reschedule to Today", "Reschedule to Future", "Assign Duration"];
+    case "NoDuration":
+      return ["Assign Duration", "Remove Due Date"];
+    case "Overdue":
+      return ["Reschedule to Today", "Reschedule to Future", "Complete Tasks"];
+    case "Deadline":
+      return ["Reschedule to Tomorrow", "Remove Due Date", "Add Priority Flag"];
+    default:
+      return [
+        "Reschedule to Today",
+        "Reschedule to Tomorrow",
+        "Reschedule to Future",
+        "Complete Tasks",
+        "Remove Due Date",
+        "Add Priority Flag",
+        "Assign Duration",
+      ];
   }
 }

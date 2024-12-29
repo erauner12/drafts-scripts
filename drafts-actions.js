@@ -1107,15 +1107,19 @@ async function runTodoistEnhancedMenu() {
   let tasksToStore = [];
   switch (mainPrompt.buttonPressed) {
     case "Tasks Due Today (No Time)":
+      draft.setTemplateTag("TasksFilterUsed", "NoTime");
       tasksToStore = await handleNoTimeTasks(todoist);
       break;
     case "Tasks Due Today (No Duration)":
+      draft.setTemplateTag("TasksFilterUsed", "NoDuration");
       tasksToStore = await handleNoDurationTasks(todoist);
       break;
     case "Overdue Tasks":
+      draft.setTemplateTag("TasksFilterUsed", "Overdue");
       tasksToStore = await handleOverdueTasks(todoist);
       break;
     case "Deadline Tasks (Today/Tomorrow)":
+      draft.setTemplateTag("TasksFilterUsed", "Deadline");
       tasksToStore = await handleDeadlineTasks(todoist);
       break;
   }
@@ -1160,16 +1164,14 @@ async function selectTasksStep() {
       return;
     }
     const selectedTasks = tasks.filter((t) => selectedContents.includes(t.content));
+    const filterUsed = draft.getTemplateTag("TasksFilterUsed") || "";
+    const relevantActions = getActionsForFilter(filterUsed);
     const actionPrompt = new Prompt;
     actionPrompt.title = "Select Action";
     actionPrompt.message = "Choose an action for the selected tasks:";
-    actionPrompt.addButton("Reschedule to Today");
-    actionPrompt.addButton("Reschedule to Tomorrow");
-    actionPrompt.addButton("Reschedule to Future");
-    actionPrompt.addButton("Complete Tasks");
-    actionPrompt.addButton("Remove Due Date");
-    actionPrompt.addButton("Add Priority Flag");
-    actionPrompt.addButton("Assign Duration");
+    for (const action of relevantActions) {
+      actionPrompt.addButton(action);
+    }
     actionPrompt.addButton("Cancel");
     const actionDidShow = actionPrompt.show();
     if (!actionDidShow || actionPrompt.buttonPressed === "Cancel") {
@@ -1301,5 +1303,28 @@ async function setPriorityFlag(todoist, tasks) {
     } catch (err) {
       log(`Error setting priority flag for task id: ${task.id} - ${String(err)}`, true);
     }
+  }
+}
+
+function getActionsForFilter(filterName) {
+  switch (filterName) {
+    case "NoTime":
+      return ["Reschedule to Today", "Reschedule to Future", "Assign Duration"];
+    case "NoDuration":
+      return ["Assign Duration", "Remove Due Date"];
+    case "Overdue":
+      return ["Reschedule to Today", "Reschedule to Future", "Complete Tasks"];
+    case "Deadline":
+      return ["Reschedule to Tomorrow", "Remove Due Date", "Add Priority Flag"];
+    default:
+      return [
+        "Reschedule to Today",
+        "Reschedule to Tomorrow",
+        "Reschedule to Future",
+        "Complete Tasks",
+        "Remove Due Date",
+        "Add Priority Flag",
+        "Assign Duration"
+      ];
   }
 }
