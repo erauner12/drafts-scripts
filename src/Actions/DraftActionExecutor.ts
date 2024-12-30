@@ -45,7 +45,9 @@ export async function runDraftsActionExecutor(): Promise<void> {
     log("[DraftActionExecutor] Ephemeral draft content:\n" + draft.content);
     const jsonData = JSON.parse(draft.content.trim());
     log("[DraftActionExecutor] Parsed JSON:", false);
+    log(JSON.stringify(jsonData), false);
     const actionName = jsonData.draftAction;
+    log("[DraftActionExecutor] actionName: " + (actionName || "undefined"));
 
     if (!actionName) {
       showAlert(
