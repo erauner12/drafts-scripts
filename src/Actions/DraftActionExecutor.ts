@@ -41,11 +41,15 @@ declare class Action {
 export async function runDraftsActionExecutor(): Promise<void> {
   try {
     log("[DraftActionExecutor] Starting runDraftsActionExecutor...");
-    // Attempt to parse draft content as JSON
+
+    // Log the entire content in case we need debugging
     log("[DraftActionExecutor] Ephemeral draft content:\n" + draft.content);
+
+    // Attempt to parse draft content as JSON
     const jsonData = JSON.parse(draft.content.trim());
     log("[DraftActionExecutor] Parsed JSON:", false);
     log(JSON.stringify(jsonData), false);
+
     const actionName = jsonData.draftAction;
     log("[DraftActionExecutor] actionName: " + (actionName || "undefined"));
 
@@ -57,17 +61,7 @@ export async function runDraftsActionExecutor(): Promise<void> {
       return;
     }
 
-    const actionToQueue = Action.find(actionName);
-    if (!actionToQueue) {
-      showAlert(
-        "Action Not Found",
-        `Could not find an action named: "${actionName}"`
-      );
-      return;
-    }
-
-    // Optionally, you might store custom parameters in template tags
-    // for the queued action to read, for example:
+    // If "params" object is present, store it in a template tag for the queued action
     if (jsonData.params) {
       log(
         "[DraftActionExecutor] Found params. Storing in template tag 'CustomParams'."
@@ -77,7 +71,15 @@ export async function runDraftsActionExecutor(): Promise<void> {
       log("[DraftActionExecutor] No params object found in JSON.");
     }
 
-    // Queue the found action to run after this script completes
+    const actionToQueue = Action.find(actionName);
+    if (!actionToQueue) {
+      showAlert(
+        "Action Not Found",
+        `Could not find an action named: "${actionName}"`
+      );
+      return;
+    }
+
     log("[DraftActionExecutor] Queuing action: " + actionName);
     const success = app.queueAction(actionToQueue, draft);
     if (!success) {
