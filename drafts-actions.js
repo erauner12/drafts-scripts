@@ -1521,7 +1521,11 @@ async function completeAllOverdueTasks(todoist) {
 // src/Actions/DraftActionExecutor.ts
 async function runDraftsActionExecutor() {
   try {
+    log("[DraftActionExecutor] Starting runDraftsActionExecutor...");
+    log(`[DraftActionExecutor] Ephemeral draft content:
+` + draft.content);
     const jsonData = JSON.parse(draft.content.trim());
+    log("[DraftActionExecutor] Parsed JSON:", false);
     const actionName = jsonData.draftAction;
     if (!actionName) {
       showAlert("No Action Provided", "Please provide 'draftAction' in the JSON.");
@@ -1532,6 +1536,13 @@ async function runDraftsActionExecutor() {
       showAlert("Action Not Found", `Could not find an action named: "${actionName}"`);
       return;
     }
+    if (jsonData.params) {
+      log("[DraftActionExecutor] Found params. Storing in template tag 'CustomParams'.");
+      draft.setTemplateTag("CustomParams", JSON.stringify(jsonData.params));
+    } else {
+      log("[DraftActionExecutor] No params object found in JSON.");
+    }
+    log("[DraftActionExecutor] Queuing action: " + actionName);
     const success = app.queueAction(actionToQueue, draft);
     if (!success) {
       log(`Failed to queue action "${actionName}".`, true);

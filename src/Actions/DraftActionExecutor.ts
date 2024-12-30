@@ -40,8 +40,11 @@ declare class Action {
  */
 export async function runDraftsActionExecutor(): Promise<void> {
   try {
+    log("[DraftActionExecutor] Starting runDraftsActionExecutor...");
     // Attempt to parse draft content as JSON
+    log("[DraftActionExecutor] Ephemeral draft content:\n" + draft.content);
     const jsonData = JSON.parse(draft.content.trim());
+    log("[DraftActionExecutor] Parsed JSON:", false);
     const actionName = jsonData.draftAction;
 
     if (!actionName) {
@@ -63,11 +66,17 @@ export async function runDraftsActionExecutor(): Promise<void> {
 
     // Optionally, you might store custom parameters in template tags
     // for the queued action to read, for example:
-    //   if (jsonData.params) {
-    //     draft.setTemplateTag("CustomParams", JSON.stringify(jsonData.params));
-    //   }
+    if (jsonData.params) {
+      log(
+        "[DraftActionExecutor] Found params. Storing in template tag 'CustomParams'."
+      );
+      draft.setTemplateTag("CustomParams", JSON.stringify(jsonData.params));
+    } else {
+      log("[DraftActionExecutor] No params object found in JSON.");
+    }
 
     // Queue the found action to run after this script completes
+    log("[DraftActionExecutor] Queuing action: " + actionName);
     const success = app.queueAction(actionToQueue, draft);
     if (!success) {
       log(`Failed to queue action "${actionName}".`, true);
