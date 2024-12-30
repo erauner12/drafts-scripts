@@ -45,6 +45,44 @@ To run the bundling process in watch mode, use `bun watch`.
 
 ## Usage inside Drafts
 
+### JSON-Based Ephemeral Draft Action
+
+**Motivation**: Often you want to call Drafts from an external app, pass it some structured data, and let Drafts run an action. Since the built-in URL scheme does not allow passing parameters beyond `text`, you can embed your parameters as JSON in the `text` field, have Drafts parse them, and then trash the draft automatically.
+
+**How to Set Up**:
+1. Add the `runDraftsActionExecutor` function to a Drafts action step (via a "Script" step):
+	```js
+	require("custom-scripts/drafts-actions.js");
+	runDraftsActionExecutor();
+
+	2.	From your external app or automation, call:
+
+drafts://x-callback-url/create?text={"draftAction":"NameOfAction","params":{"sampleKey":"sampleValue"}}&action=Drafts%20Action%20Executor
+
+```
+drafts://create?text=%7B%22draftAction%22%3A%22NameOfAction%22%2C%22params%22%3A%7B%22sampleKey%22%3A%22sampleValue%22%7D%7D&action=Drafts%20Action%20Executor
+```
+
+	•	The parameter text includes a JSON object with:
+	•	draftAction : The name of the action to queue after parsing.
+	•	params : (Optional) A freeform JSON object for custom script parameters, if needed.
+	•	The action portion (Drafts%20Action%20Executor) should match the name of the Drafts action that contains the script above.
+
+What Happens:
+	1.	Drafts creates a new draft containing that JSON payload.
+	2.	The newly created draft automatically runs the Drafts Action Executor action (because of the action parameter).
+	3.	The script in Drafts Action Executor parses the draft’s content as JSON, queues the action named in draftAction, and then trashes the draft to keep it ephemeral.
+
+Example:
+If draftAction is MyTodoistSyncAction, the script will attempt:
+
+let a = Action.find("MyTodoistSyncAction");
+app.queueAction(a, draft);
+
+and then trash the ephemeral draft.
+
+This mechanism can be extended to pass any structured data you wish, potentially reading more advanced parameters in your queued script with additional logic.
+
 User scripts can be connected to the Drafts app as follows:
 
 1. Move the scripts directory inside the default Drafts Scripts directory - in my case `~/Library/Mobile Documents/iCloud~com~agiletortoise~Drafts5/Documents/Library/Scripts`

@@ -1518,3 +1518,32 @@ async function completeAllOverdueTasks(todoist) {
   }
   showAlert("Overdue Tasks Completed", "All overdue tasks have been closed.");
 }
+// src/Actions/DraftActionExecutor.ts
+async function runDraftsActionExecutor() {
+  try {
+    const jsonData = JSON.parse(draft.content.trim());
+    const actionName = jsonData.draftAction;
+    if (!actionName) {
+      showAlert("No Action Provided", "Please provide 'draftAction' in the JSON.");
+      return;
+    }
+    const actionToQueue = Action.find(actionName);
+    if (!actionToQueue) {
+      showAlert("Action Not Found", `Could not find an action named: "${actionName}"`);
+      return;
+    }
+    const success = app.queueAction(actionToQueue, draft);
+    if (!success) {
+      log(`Failed to queue action "${actionName}".`, true);
+    } else {
+      log(`Queued action "${actionName}" successfully.`);
+    }
+  } catch (error) {
+    log(`Error in runDraftsActionExecutor: ${String(error)}`, true);
+  } finally {
+    if (!draft.isTrashed) {
+      draft.trash();
+      log("Trashed ephemeral draft.");
+    }
+  }
+}
