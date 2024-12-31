@@ -1749,6 +1749,11 @@ function runMyActionName() {
       draft.addTag("status::processed");
       draft.update();
       log("[MyActionName] Added scoped tag 'status::processed' to the loaded draft.");
+      const afterJson = draft.toJSON();
+      log(`[MyActionName] Post-update draft.toJSON():
+` + JSON.stringify(afterJson, null, 2));
+      editor.load(draft);
+      log("[MyActionName] Reloaded this draft in the editor to reflect updated tags.");
     }
     let draftSummary = `
 UUID: ${draft.uuid}

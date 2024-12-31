@@ -56,6 +56,19 @@ export function runMyActionName() {
       log(
         "[MyActionName] Added scoped tag 'status::processed' to the loaded draft."
       );
+
+      // Verify by logging the full toJSON output
+      const afterJson = draft.toJSON();
+      log(
+        "[MyActionName] Post-update draft.toJSON():\n" +
+          JSON.stringify(afterJson, null, 2)
+      );
+
+      // Optional: Force the editor to reload the same draft so the UI shows updated tags
+      editor.load(draft);
+      log(
+        "[MyActionName] Reloaded this draft in the editor to reflect updated tags."
+      );
     }
 
     // Show an alert summarizing the changes we made
