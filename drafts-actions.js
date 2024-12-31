@@ -1533,15 +1533,28 @@ async function runDraftsActionExecutor() {
       showAlert("No Action Provided", "Please provide 'draftAction' in the JSON.");
       return;
     }
+    let realDraft = null;
     if (jsonData.draftData) {
-      log("[DraftActionExecutor] Found draftData. Storing in template tag 'DraftData'.");
-      draft.setTemplateTag("DraftData", JSON.stringify(jsonData.draftData));
+      log("[DraftActionExecutor] Found draftData. Creating a new draft with that data...");
+      realDraft = Draft.create();
+      if (typeof jsonData.draftData.content === "string") {
+        realDraft.content = jsonData.draftData.content;
+      }
+      if (jsonData.draftData.title) {
+        realDraft.addTag("title:" + jsonData.draftData.title);
+      }
+      if (jsonData.draftData.flagged === true) {
+        realDraft.isFlagged = true;
+      }
+      realDraft.update();
+      log("[DraftActionExecutor] Created a new real draft. UUID = " + realDraft.uuid);
     } else {
       log("[DraftActionExecutor] No draftData object found in JSON.");
     }
+    let draftForAction = realDraft || draft;
     if (jsonData.params) {
       log("[DraftActionExecutor] Found params. Storing in template tag 'CustomParams'.");
-      draft.setTemplateTag("CustomParams", JSON.stringify(jsonData.params));
+      draftForAction.setTemplateTag("CustomParams", JSON.stringify(jsonData.params));
     } else {
       log("[DraftActionExecutor] No params object found in JSON.");
     }
@@ -1550,8 +1563,8 @@ async function runDraftsActionExecutor() {
       showAlert("Action Not Found", `Could not find an action named: "${actionName}"`);
       return;
     }
-    log("[DraftActionExecutor] Queuing action: " + actionName);
-    const success = app.queueAction(actionToQueue, draft);
+    log("[DraftActionExecutor] Queuing action on draft: " + draftForAction.uuid);
+    const success = app.queueAction(actionToQueue, draftForAction);
     if (!success) {
       log(`Failed to queue action "${actionName}".`, true);
     } else {
@@ -1562,7 +1575,7 @@ async function runDraftsActionExecutor() {
   } finally {
     if (!draft.isTrashed) {
       draft.trash();
-      log("Trashed ephemeral draft.");
+      log("Trashed the ephemeral JSON draft (UUID: " + draft.uuid + ").");
     }
   }
 }

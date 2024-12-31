@@ -61,21 +61,44 @@ export async function runDraftsActionExecutor(): Promise<void> {
       return;
     }
 
-    // If "params" object is present, store it in a template tag for the queued action
+    // If we have jsonData.draftData, create a new draft:
+    let realDraft: Draft | null = null;
+
     if (jsonData.draftData) {
       log(
-        "[DraftActionExecutor] Found draftData. Storing in template tag 'DraftData'."
+        "[DraftActionExecutor] Found draftData. Creating a new draft with that data..."
       );
-      draft.setTemplateTag("DraftData", JSON.stringify(jsonData.draftData));
+      realDraft = Draft.create();
+      if (typeof jsonData.draftData.content === "string") {
+        realDraft.content = jsonData.draftData.content;
+      }
+      if (jsonData.draftData.title) {
+        realDraft.addTag("title:" + jsonData.draftData.title);
+      }
+      if (jsonData.draftData.flagged === true) {
+        realDraft.isFlagged = true;
+      }
+      realDraft.update();
+      log(
+        "[DraftActionExecutor] Created a new real draft. UUID = " +
+          realDraft.uuid
+      );
     } else {
       log("[DraftActionExecutor] No draftData object found in JSON.");
     }
 
+    // Decide which draft to queue the action on:
+    let draftForAction = realDraft || draft;
+
+    // If params exist, store them on draftForAction:
     if (jsonData.params) {
       log(
         "[DraftActionExecutor] Found params. Storing in template tag 'CustomParams'."
       );
-      draft.setTemplateTag("CustomParams", JSON.stringify(jsonData.params));
+      draftForAction.setTemplateTag(
+        "CustomParams",
+        JSON.stringify(jsonData.params)
+      );
     } else {
       log("[DraftActionExecutor] No params object found in JSON.");
     }
@@ -89,8 +112,10 @@ export async function runDraftsActionExecutor(): Promise<void> {
       return;
     }
 
-    log("[DraftActionExecutor] Queuing action: " + actionName);
-    const success = app.queueAction(actionToQueue, draft);
+    log(
+      "[DraftActionExecutor] Queuing action on draft: " + draftForAction.uuid
+    );
+    const success = app.queueAction(actionToQueue, draftForAction);
     if (!success) {
       log(`Failed to queue action "${actionName}".`, true);
     } else {
@@ -102,7 +127,7 @@ export async function runDraftsActionExecutor(): Promise<void> {
     // Trash the draft to keep it ephemeral
     if (!draft.isTrashed) {
       draft.trash();
-      log("Trashed ephemeral draft.");
+      log("Trashed the ephemeral JSON draft (UUID: " + draft.uuid + ").");
     }
   }
 }

@@ -47,6 +47,26 @@ To run the bundling process in watch mode, use `bun watch`.
 
 ### JSON-Based Ephemeral Draft Action
 
+**New Note**: If you supply a `draftData` object, our script creates a brand-new Draft with that content (and optional flags/tags). The ephemeral JSON draft is trashed, but the new Draft persists, allowing the queued action to properly access the template tags and content.
+
+**Motivation**: Often you want to call Drafts from an external app, pass it some structured data, and let Drafts run an action. Since the built-in URL scheme does not allow passing parameters beyond `text`, you can embed your parameters as JSON in the `text` field, have Drafts parse them, create a new Draft if desired, and then trash only the ephemeral JSON draft.
+
+For example:
+```json
+{
+  "draftAction": "MyActionName",
+  "draftData": {
+    "content": "Hello from JSON",
+    "title": "My Title",
+    "flagged": true
+  },
+  "params": {
+    "someParameter": 123
+  }
+}
+
+In this scenario, draftData describes the real Draft you want created. Meanwhile, params are stored as CustomParams on that new draft for your queued action. The ephemeral JSON draft is trashed to keep the workspace clean.
+
 **Motivation**: Often you want to call Drafts from an external app, pass it some structured data, and let Drafts run an action. Since the built-in URL scheme does not allow passing parameters beyond `text`, you can embed your parameters as JSON in the `text` field, have Drafts parse them, and then trash the draft automatically.
 
 **How to Set Up**:
