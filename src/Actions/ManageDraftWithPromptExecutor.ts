@@ -1,17 +1,20 @@
-// ManageDraftWithPromptExecutor.ts
-//
-// This script demonstrates an "orchestrator" approach, bridging the loaded editor draft
-// with a user prompt to queue actions or do immediate archive/trash operations. It does
-// not automatically load the next draft. The user can simply open the next draft (via
-// keyboard shortcut, search, or selecting from the workspace) and rerun the script.
-//
-// Usage:
-//  1) Assign a keyboard shortcut to "ManageDraftWithPromptExecutor" to quickly run it on
-//     whichever draft is loaded in the editor.
-//  2) The prompt will offer actions to queue (which can be ephemeral or fallback-based),
-//     or to do simpler tasks like "Archive" or "Trash."
-
 import { log, showAlert } from "../helpers-utils";
+
+/**
+ * ManageDraftWithPromptExecutor.ts
+ *
+ * This script demonstrates an "orchestrator" approach for the currently loaded
+ * draft in the editor. The user can:
+ *  - Archive or Trash the draft, upon which we auto-load the next relevant draft
+ *    from the same workspace.
+ *  - Toggle Flag or do other local modifications.
+ *  - Queue an external action (like MyActionName or BatchProcessAction) via
+ *    DraftActionExecutor and ephemeral/fallback JSON.
+ *
+ * Once we've done an operation that removes the draft from the workspace
+ * (archive or trash), we attempt to load the next relevant draft from the
+ * workspace so the user can continue processing. If none is found, we simply end.
+ */
 
 declare var draft: Draft;
 declare var app: {
@@ -27,22 +30,23 @@ declare var editor: {
 declare var script: {
   complete(): void;
 };
+
 declare class Action {
   static find(name: string): any;
 }
+
 interface Draft {
   uuid: string;
   content: string;
   isTrashed: boolean;
   isArchived: boolean;
   isFlagged: boolean;
-  tags: string[];
   title: string;
   update(): void;
   addTag(tag: string): void;
   removeTag(tag: string): void;
-  setTemplateTag(t: string, v: string): void;
   hasTag(tag: string): boolean;
+  setTemplateTag(t: string, v: string): void;
 }
 
 declare class Prompt {
@@ -57,12 +61,13 @@ declare class Prompt {
 /**
  * runManageDraftWithPromptExecutor()
  *
- * Presents a menu of possible actions for the currently loaded draft, bridging
- * direct manipulations (like archive, trash, tags) with the possibility of
- * queueing an action in the DraftActionExecutor system.
- *
- * Does NOT automatically load the next draft. Instead, the user can open the next
- * draft as they prefer (keyboard shortcut, workspace list, etc.) and rerun this script.
+ * Usage:
+ *  - Assign a keyboard shortcut or toolbar button to this action.
+ *  - Open a draft in the editor, run the action, pick an option in the prompt.
+ *  - If you archive or trash the draft, this script tries to load the next
+ *    unarchived/untrashed draft in the current workspace (scanning forward, then backward).
+ *  - If you queue an external action, we add ephemeral/fallback JSON to the draft
+ *    and call the DraftActionExecutor.
  */
 export async function runManageDraftWithPromptExecutor(): Promise<void> {
   if (!draft) {
@@ -75,53 +80,52 @@ export async function runManageDraftWithPromptExecutor(): Promise<void> {
     `[ManageDraftWithPromptExecutor] Acting on draft: "${draft.title}" (uuid: ${draft.uuid})`
   );
 
-  // Construct a prompt for user to pick how they'd like to handle this draft
-  const mainPrompt = new Prompt();
-  mainPrompt.title = "Manage Draft";
-  mainPrompt.message = `Currently loaded draft:\n"${
+  const p = new Prompt();
+  p.title = "Manage Draft";
+  p.message = `Current draft:\n"${
     draft.title
   }"\n\nContent Preview:\n${draft.content.slice(0, 100)}\n...`;
 
-  // Possible local actions
-  mainPrompt.addButton("Archive Draft");
-  mainPrompt.addButton("Trash Draft");
-  mainPrompt.addButton("Toggle Flag");
-  // Possibly queue an external action (like MyActionName, or other actions)
-  mainPrompt.addButton("Queue: MyActionName");
-  mainPrompt.addButton("Queue: BatchProcessAction");
-  mainPrompt.addButton("Cancel");
+  p.addButton("Archive");
+  p.addButton("Trash");
+  p.addButton("Toggle Flag");
+  p.addButton("Queue: MyActionName");
+  p.addButton("Queue: BatchProcessAction");
+  p.addButton("Cancel");
 
-  if (!mainPrompt.show() || mainPrompt.buttonPressed === "Cancel") {
+  if (!p.show() || p.buttonPressed === "Cancel") {
     log(
-      "[ManageDraftWithPromptExecutor] Prompt cancelled or user chose Cancel."
+      "[ManageDraftWithPromptExecutor] User canceled prompt or pressed Cancel."
     );
     script.complete();
     return;
   }
 
-  const choice = mainPrompt.buttonPressed;
+  const choice = p.buttonPressed;
   log(`[ManageDraftWithPromptExecutor] User selected: ${choice}`);
 
+  let removeFromWorkspace = false;
+
   switch (choice) {
-    case "Archive Draft":
+    case "Archive":
       if (draft.isArchived) {
-        app.displayInfoMessage("Draft already in archive.");
+        app.displayInfoMessage("Draft already archived.");
       } else {
         draft.isArchived = true;
         draft.update();
-        log(`[ManageDraftWithPromptExecutor] Draft archived: ${draft.uuid}`);
-        // optional: Reload
-        // editor.load(draft);
+        log(`[ManageDraftWithPromptExecutor] Archived draft ${draft.uuid}.`);
+        removeFromWorkspace = true;
       }
       break;
 
-    case "Trash Draft":
+    case "Trash":
       if (draft.isTrashed) {
-        app.displayInfoMessage("Draft already in trash.");
+        app.displayInfoMessage("Draft already trashed.");
       } else {
         draft.isTrashed = true;
         draft.update();
-        log(`[ManageDraftWithPromptExecutor] Draft trashed: ${draft.uuid}`);
+        log(`[ManageDraftWithPromptExecutor] Trashed draft ${draft.uuid}.`);
+        removeFromWorkspace = true;
       }
       break;
 
@@ -129,47 +133,45 @@ export async function runManageDraftWithPromptExecutor(): Promise<void> {
       draft.isFlagged = !draft.isFlagged;
       draft.update();
       log(
-        `[ManageDraftWithPromptExecutor] Draft flagged status is now: ${draft.isFlagged}`
+        `[ManageDraftWithPromptExecutor] Toggled flag, now isFlagged = ${draft.isFlagged}`
       );
       break;
 
     case "Queue: MyActionName": {
-      // We can do ephemeral JSON or fallback. Let's do fallback:
+      // Provide fallback JSON
       const fallbackData = {
         draftAction: "MyActionName",
         params: {
-          reason: "Executor used from ManageDraftWithPromptExecutor",
+          reason: "User picked MyActionName in orchestrator",
         },
       };
       draft.setTemplateTag("ExecutorData", JSON.stringify(fallbackData));
-      log(
-        "[ManageDraftWithPromptExecutor] Set ExecutorData with fallback JSON for MyActionName."
-      );
+      log("[ManageDraftWithPromptExecutor] Set ExecutorData for MyActionName.");
 
       const executor = Action.find("Drafts Action Executor");
       if (!executor) {
         showAlert(
           "Executor Not Found",
-          "Unable to locate 'Drafts Action Executor'."
+          "Could not find 'Drafts Action Executor'."
         );
         break;
       }
       const queued = app.queueAction(executor, draft);
-      if (queued) {
-        log(
-          "[ManageDraftWithPromptExecutor] Queued MyActionName successfully."
-        );
-      } else {
+      if (!queued) {
         log(
           "[ManageDraftWithPromptExecutor] Failed to queue MyActionName!",
           true
+        );
+      } else {
+        log(
+          "[ManageDraftWithPromptExecutor] Queued MyActionName successfully."
         );
       }
       break;
     }
 
     case "Queue: BatchProcessAction": {
-      // Another example of ephemeral fallback approach
+      // Provide fallback JSON
       const fallbackData = {
         draftAction: "BatchProcessAction",
         params: { reason: "User picked BatchProcessAction in orchestrator" },
@@ -183,28 +185,77 @@ export async function runManageDraftWithPromptExecutor(): Promise<void> {
       if (!executor) {
         showAlert(
           "Executor Not Found",
-          "Unable to locate 'Drafts Action Executor'."
+          "Could not find 'Drafts Action Executor'."
         );
         break;
       }
       const queued = app.queueAction(executor, draft);
-      if (queued) {
-        log(
-          "[ManageDraftWithPromptExecutor] Queued BatchProcessAction successfully."
-        );
-      } else {
+      if (!queued) {
         log(
           "[ManageDraftWithPromptExecutor] Failed to queue BatchProcessAction!",
           true
+        );
+      } else {
+        log(
+          "[ManageDraftWithPromptExecutor] Queued BatchProcessAction successfully."
         );
       }
       break;
     }
   }
 
-  // Not automatically loading next draft.
-  // If user wants to open the next draft, they can do so manually,
-  // then re-run this script with a keyboard shortcut or toolbar button.
+  // If we removed the draft from the workspace, load the next one
+  if (removeFromWorkspace) {
+    const nextDraft = findNextDraftInWorkspace(draft);
+    if (nextDraft) {
+      editor.load(nextDraft);
+      log(
+        `[ManageDraftWithPromptExecutor] Loaded next draft: "${nextDraft.title}" (uuid: ${nextDraft.uuid})`
+      );
+    } else {
+      log(
+        "[ManageDraftWithPromptExecutor] Could not find another draft to load in the workspace."
+      );
+    }
+  }
 
   script.complete();
+}
+
+/**
+ * findNextDraftInWorkspace(d)
+ *
+ * Given the current draft `d`, search the current workspace array to find
+ * the next unarchived/untrashed draft, scanning forward from the current position.
+ * If not found, scan backward. Return undefined if none is found.
+ */
+function findNextDraftInWorkspace(current: Draft): Draft | undefined {
+  const workspaceDrafts = app.currentWorkspace.query("all");
+  // Find index of current draft
+  const currentIndex = workspaceDrafts.findIndex(
+    (dr) => dr.uuid === current.uuid
+  );
+
+  if (currentIndex === -1) {
+    log(
+      "[ManageDraftWithPromptExecutor] Current draft not found in workspace query. Possibly filtered out?"
+    );
+    return;
+  }
+
+  // Try to find the next untrashed/unarchived forward
+  for (let i = currentIndex + 1; i < workspaceDrafts.length; i++) {
+    if (!workspaceDrafts[i].isArchived && !workspaceDrafts[i].isTrashed) {
+      return workspaceDrafts[i];
+    }
+  }
+
+  // If not found forward, search backward
+  for (let i = currentIndex - 1; i >= 0; i--) {
+    if (!workspaceDrafts[i].isArchived && !workspaceDrafts[i].isTrashed) {
+      return workspaceDrafts[i];
+    }
+  }
+
+  return;
 }
