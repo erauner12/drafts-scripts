@@ -104,9 +104,6 @@ export { runBatchProcessAction } from "./Actions/BatchProcessAction";
 export { runDraftsActionExecutor } from "./Actions/DraftActionExecutor";
 export { runMyActionName } from "./Actions/MyActionName";
 
-export { runBatchProcessTodoistAction } from "./Actions/BatchProcessTodoistAction";
 
-
-export { runManageDraftWithPrompt } from "./Actions/ManageDraftWithPrompt";
 export { runManageDraftWithPromptExecutor } from "./Actions/ManageDraftWithPromptExecutor";
 
