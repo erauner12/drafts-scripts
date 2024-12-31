@@ -1777,70 +1777,82 @@ CustomParams:
   showAlert("MyActionName Summary", summary);
 }
 // src/Actions/ManageDraftWithPromptExecutor.ts
-async function runManageDraftWithPromptExecutor() {
+function runManageDraftWithPromptExecutor() {
   if (!draft) {
-    log("[ManageDraftWithPromptExecutor] No loaded draft found!");
+    log("No loaded draft!");
     script.complete();
     return;
   }
-  log(`[ManageDraftWithPromptExecutor] Acting on draft: "${draft.title}" (uuid: ${draft.uuid})`);
-  const workspaceDrafts = app.currentWorkspace.query("all");
+  const ws = app.currentWorkspace;
+  const folder = ws.loadFolder ?? "all";
+  log(`Workspace folder from app.currentWorkspace: ${folder}`);
+  const workspaceDrafts = ws.query(folder);
   const currentIndex = workspaceDrafts.findIndex((dr) => dr.uuid === draft.uuid);
-  if (currentIndex === -1) {
-    log("[ManageDraftWithPromptExecutor] Current draft not found in workspace array. Possibly filtered out already?");
-  }
   const p = new Prompt;
   p.title = "Manage Draft";
-  p.message = `[${draft.uuid}]
-"${draft.title}"
-
-Content Preview:
-${draft.content.slice(0, 100)}`;
-  if (draft.isArchived) {
-    p.addButton("Move to Inbox");
-  } else if (!draft.isTrashed) {
-    p.addButton("Archive");
-  }
-  if (draft.isTrashed) {
-    p.addButton("Move to Inbox");
-  } else {
+  p.message = `Folder: ${folder} || Draft: "${draft.title}"
+(${draft.uuid})`;
+  if (folder === "archive") {
+    if (draft.isArchived)
+      p.addButton("Move to Inbox");
     p.addButton("Trash");
-  }
-  if (draft.isFlagged) {
-    p.addButton("Unflag");
+    if (draft.isFlagged)
+      p.addButton("Unflag");
+    else
+      p.addButton("Flag");
+  } else if (folder === "flagged") {
+    if (draft.isFlagged)
+      p.addButton("Unflag");
+    if (!draft.isArchived)
+      p.addButton("Archive");
+    if (!draft.isTrashed)
+      p.addButton("Trash");
+  } else if (folder === "trash") {
+    if (draft.isTrashed)
+      p.addButton("Move to Inbox");
+  } else if (folder === "inbox") {
+    if (!draft.isArchived)
+      p.addButton("Archive");
+    if (!draft.isTrashed)
+      p.addButton("Trash");
+    if (draft.isFlagged)
+      p.addButton("Unflag");
+    else
+      p.addButton("Flag");
   } else {
-    p.addButton("Flag");
+    if (!draft.isArchived)
+      p.addButton("Archive");
+    if (!draft.isTrashed)
+      p.addButton("Trash");
+    if (draft.isFlagged)
+      p.addButton("Unflag");
+    else
+      p.addButton("Flag");
   }
   p.addButton("Queue: MyActionName");
   p.addButton("Queue: BatchProcessAction");
   p.addButton("Cancel");
   if (!p.show() || p.buttonPressed === "Cancel") {
-    log("[ManageDraftWithPromptExecutor] User canceled prompt.");
+    log("User canceled.");
     script.complete();
     return;
   }
   const choice = p.buttonPressed;
-  log(`[ManageDraftWithPromptExecutor] User selected: ${choice}`);
-  let draftRemoved = false;
+  log(`User chose: ${choice}`);
+  let removeDraft = false;
   switch (choice) {
     case "Archive":
       if (!draft.isArchived) {
         draft.isArchived = true;
         draft.update();
-        log(`[ManageDraftWithPromptExecutor] Archived draft: ${draft.uuid}`);
-        draftRemoved = true;
-      } else {
-        app.displayInfoMessage("Draft is already archived.");
+        removeDraft = folder === "inbox" || folder === "flagged" || folder === "all";
       }
       break;
     case "Trash":
       if (!draft.isTrashed) {
         draft.isTrashed = true;
         draft.update();
-        log(`[ManageDraftWithPromptExecutor] Trashed draft: ${draft.uuid}`);
-        draftRemoved = true;
-      } else {
-        app.displayInfoMessage("Draft is already trashed.");
+        removeDraft = folder !== "trash";
       }
       break;
     case "Move to Inbox":
@@ -1848,81 +1860,63 @@ ${draft.content.slice(0, 100)}`;
         draft.isArchived = false;
         draft.isTrashed = false;
         draft.update();
-        log(`[ManageDraftWithPromptExecutor] Moved draft to Inbox: ${draft.uuid}`);
-        draftRemoved = true;
-      } else {
-        app.displayInfoMessage("Draft is already in Inbox.");
+        removeDraft = folder === "archive" || folder === "trash" || folder === "flagged";
       }
       break;
     case "Flag":
       if (!draft.isFlagged) {
         draft.isFlagged = true;
         draft.update();
-        log(`[ManageDraftWithPromptExecutor] Flagged draft: ${draft.uuid}`);
-      } else {
-        app.displayInfoMessage("Draft is already flagged.");
+        removeDraft = false;
       }
       break;
     case "Unflag":
       if (draft.isFlagged) {
         draft.isFlagged = false;
         draft.update();
-        log(`[ManageDraftWithPromptExecutor] Unflagged draft: ${draft.uuid}`);
-        draftRemoved = true;
-      } else {
-        app.displayInfoMessage("Draft was not flagged.");
+        removeDraft = folder === "flagged";
       }
       break;
     case "Queue: MyActionName": {
-      const fallbackData = {
-        draftAction: "MyActionName",
-        params: { reason: "Called from ManageDraftWithPromptExecutor" }
-      };
-      draft.setTemplateTag("ExecutorData", JSON.stringify(fallbackData));
-      log("[ManageDraftWithPromptExecutor] Set ExecutorData for MyActionName.");
-      const executor = Action.find("Drafts Action Executor");
-      if (!executor) {
-        showAlert("Executor Not Found", "Unable to find 'Drafts Action Executor'.");
+      const data = { draftAction: "MyActionName" };
+      draft.setTemplateTag("ExecutorData", JSON.stringify(data));
+      const ex = Action.find("Drafts Action Executor");
+      if (!ex) {
+        showAlert("No Executor", "Can't find 'Drafts Action Executor'.");
         break;
       }
-      const success = app.queueAction(executor, draft);
-      log(success ? "[ManageDraftWithPromptExecutor] Queued MyActionName successfully." : "[ManageDraftWithPromptExecutor] Failed to queue MyActionName!", !success);
+      const queued = app.queueAction(ex, draft);
+      log(queued ? "Queued MyActionName." : "Failed to queue MyActionName.", !queued);
       break;
     }
     case "Queue: BatchProcessAction": {
-      const fallbackData = {
-        draftAction: "BatchProcessAction",
-        params: { reason: "Called from ManageDraftWithPromptExecutor" }
-      };
-      draft.setTemplateTag("ExecutorData", JSON.stringify(fallbackData));
-      log("[ManageDraftWithPromptExecutor] Set ExecutorData for BatchProcessAction.");
-      const executor = Action.find("Drafts Action Executor");
-      if (!executor) {
-        showAlert("Executor Not Found", "Unable to find 'Drafts Action Executor'.");
+      const data = { draftAction: "BatchProcessAction" };
+      draft.setTemplateTag("ExecutorData", JSON.stringify(data));
+      const ex = Action.find("Drafts Action Executor");
+      if (!ex) {
+        showAlert("No Executor", "Can't find 'Drafts Action Executor'.");
         break;
       }
-      const success = app.queueAction(executor, draft);
-      log(success ? "[ManageDraftWithPromptExecutor] Queued BatchProcessAction successfully." : "[ManageDraftWithPromptExecutor] Failed to queue BatchProcessAction!", !success);
+      const queued = app.queueAction(ex, draft);
+      log(queued ? "Queued BatchProcessAction." : "Failed to queue BatchProcessAction.", !queued);
       break;
     }
   }
-  if (draftRemoved && currentIndex !== -1) {
-    const nextDraft = findNextDraft(workspaceDrafts, currentIndex);
-    if (nextDraft) {
-      editor.load(nextDraft);
-      log(`[ManageDraftWithPromptExecutor] Loaded next draft: "${nextDraft.title}" (uuid: ${nextDraft.uuid})`);
+  if (removeDraft && currentIndex !== -1) {
+    const next = findNextDraft(workspaceDrafts, currentIndex);
+    if (next) {
+      editor.load(next);
+      log(`Loaded next: "${next.title}" (uuid: ${next.uuid})`);
     } else {
-      log("[ManageDraftWithPromptExecutor] No next draft found in workspace array.");
+      log("No next draft in array.");
     }
   }
   script.complete();
 }
-function findNextDraft(list, index) {
-  if (index + 1 < list.length) {
-    return list[index + 1];
-  }
-  if (index - 1 >= 0) {
-    return list[index - 1];
-  }
+function findNextDraft(list, idx) {
+  if (idx + 1 < list.length)
+    return list[idx + 1];
+  if (idx - 1 >= 0)
+    return list[idx - 1];
   return;
 }

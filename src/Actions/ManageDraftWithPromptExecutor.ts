@@ -1,20 +1,10 @@
-// ManageDraftWithPromptExecutor.ts
-//
-// This version customizes the prompt options based on the draft's current state.
-// If the draft is archived, we might offer "Move to Inbox" instead of "Archive."
-// If it's trashed, we might show only "Move to Inbox," etc.
-//
-// We also preserve the logic of capturing the workspace's array and index
-// before modifications so we can find/load the next draft if needed.
-
 import { log, showAlert } from "../helpers-utils";
 
 declare var draft: Draft;
 declare var app: {
+  currentWorkspace: Workspace;
+  applyWorkspace(ws: Workspace): void;
   queueAction(action: any, d: Draft): boolean;
-  currentWorkspace: {
-    query(filter: string): Draft[];
-  };
   displayInfoMessage(msg: string): void;
 };
 declare var editor: {
@@ -28,25 +18,31 @@ declare class Action {
   static find(name: string): any;
 }
 
+type draftFolderTab = "inbox" | "flagged" | "archive" | "trash" | "all";
+
 interface Draft {
   uuid: string;
   content: string;
+  title: string;
   isTrashed: boolean;
   isArchived: boolean;
   isFlagged: boolean;
-  title: string;
   update(): void;
-  addTag(tag: string): void;
-  removeTag(tag: string): void;
-  hasTag(tag: string): boolean;
   setTemplateTag(t: string, v: string): void;
+}
+
+interface Workspace {
+  loadFolder?: draftFolderTab;
+  tagFilter: string;
+  flaggedStatus: string;
+  // ...
+  query(filter: draftFolderTab): Draft[];
 }
 
 declare class Prompt {
   title: string;
   message: string;
   buttonPressed: string;
-  fieldValues: { [key: string]: any };
   addButton(title: string): void;
   show(): boolean;
 }
@@ -54,87 +50,85 @@ declare class Prompt {
 /**
  * runManageDraftWithPromptExecutor
  *
- * 1) Capture the workspace array & current index.
- * 2) Build a prompt with options relevant to the draft's state.
- * 3) Perform the selected operation. If it removed the draft from the workspace (archived, trashed, unflagged in a flagged workspace, etc.), we load the next draft in the original array.
+ * Attempt to read app.currentWorkspace.loadFolder to guide which actions to show,
+ * but if it seems mismatched with the actual draft state, we fallback on just showing
+ * the relevant actions from the draft’s isArchived/isTrashed/isFlagged.
  */
-export async function runManageDraftWithPromptExecutor(): Promise<void> {
+export function runManageDraftWithPromptExecutor(): void {
   if (!draft) {
-    log("[ManageDraftWithPromptExecutor] No loaded draft found!");
+    log("No loaded draft!");
     script.complete();
     return;
   }
 
-  log(
-    `[ManageDraftWithPromptExecutor] Acting on draft: "${draft.title}" (uuid: ${draft.uuid})`
-  );
+  const ws = app.currentWorkspace;
+  const folder = ws.loadFolder ?? "all"; // Might be "inbox", "archive", "flagged", "trash", "all" or undefined
+  log(`Workspace folder from app.currentWorkspace: ${folder}`);
 
-  // Capture the original array so we can load next if needed
-  const workspaceDrafts = app.currentWorkspace.query("all");
+  // We'll do the array capture in case we remove from the workspace
+  const workspaceDrafts = ws.query(folder);
   const currentIndex = workspaceDrafts.findIndex(
     (dr) => dr.uuid === draft.uuid
   );
-  if (currentIndex === -1) {
-    log(
-      "[ManageDraftWithPromptExecutor] Current draft not found in workspace array. Possibly filtered out already?"
-    );
-  }
 
-  // Build our dynamic list of possible actions
+  // We'll build a prompt that tries to adapt. If the folder is "archive" but the draft is not archived,
+  // maybe the user has some custom filter. We'll show general actions anyway.
+
   const p = new Prompt();
   p.title = "Manage Draft";
-  p.message = `[${draft.uuid}]\n"${
-    draft.title
-  }"\n\nContent Preview:\n${draft.content.slice(0, 100)}`;
+  p.message = `Folder: ${folder} || Draft: "${draft.title}"\n(${draft.uuid})`;
 
-  // If draft is archived, we might want "Move to Inbox" or "Trash"
-  // If draft is not archived, we might want "Archive"
-  if (draft.isArchived) {
-    p.addButton("Move to Inbox");
-  } else if (!draft.isTrashed) {
-    p.addButton("Archive");
-  }
-  // If draft is trashed, we might show a "Move to Inbox"
-  if (draft.isTrashed) {
-    p.addButton("Move to Inbox");
-  } else {
+  if (folder === "archive") {
+    // If the draft is not actually archived, the user might have a custom filter. We'll still show Move to Inbox if archived, etc.
+    if (draft.isArchived) p.addButton("Move to Inbox");
     p.addButton("Trash");
-  }
-
-  // For flagged or unflagged
-  if (draft.isFlagged) {
-    p.addButton("Unflag");
+    if (draft.isFlagged) p.addButton("Unflag");
+    else p.addButton("Flag");
+  } else if (folder === "flagged") {
+    // If the draft isn't flagged, it might be in a custom filter. We'll handle that gracefully:
+    if (draft.isFlagged) p.addButton("Unflag");
+    if (!draft.isArchived) p.addButton("Archive");
+    if (!draft.isTrashed) p.addButton("Trash");
+  } else if (folder === "trash") {
+    // If the draft isTrashed, we can show Move to Inbox.
+    if (draft.isTrashed) p.addButton("Move to Inbox");
+  } else if (folder === "inbox") {
+    // Typical approach: show Archive, Trash, Flag
+    if (!draft.isArchived) p.addButton("Archive");
+    if (!draft.isTrashed) p.addButton("Trash");
+    if (draft.isFlagged) p.addButton("Unflag");
+    else p.addButton("Flag");
   } else {
-    p.addButton("Flag");
+    // "all" or unknown
+    // We'll just show everything
+    if (!draft.isArchived) p.addButton("Archive");
+    if (!draft.isTrashed) p.addButton("Trash");
+    if (draft.isFlagged) p.addButton("Unflag");
+    else p.addButton("Flag");
   }
 
-  // Add queue options
+  // Always provide queue options
   p.addButton("Queue: MyActionName");
   p.addButton("Queue: BatchProcessAction");
-
-  // Finally, the cancel button
   p.addButton("Cancel");
 
   if (!p.show() || p.buttonPressed === "Cancel") {
-    log("[ManageDraftWithPromptExecutor] User canceled prompt.");
+    log("User canceled.");
     script.complete();
     return;
   }
 
   const choice = p.buttonPressed;
-  log(`[ManageDraftWithPromptExecutor] User selected: ${choice}`);
-
-  let draftRemoved = false; // We'll set this to true if we suspect the draft leaves the workspace.
+  log(`User chose: ${choice}`);
+  let removeDraft = false;
 
   switch (choice) {
     case "Archive":
       if (!draft.isArchived) {
         draft.isArchived = true;
         draft.update();
-        log(`[ManageDraftWithPromptExecutor] Archived draft: ${draft.uuid}`);
-        draftRemoved = true;
-      } else {
-        app.displayInfoMessage("Draft is already archived.");
+        removeDraft =
+          folder === "inbox" || folder === "flagged" || folder === "all";
       }
       break;
 
@@ -142,10 +136,7 @@ export async function runManageDraftWithPromptExecutor(): Promise<void> {
       if (!draft.isTrashed) {
         draft.isTrashed = true;
         draft.update();
-        log(`[ManageDraftWithPromptExecutor] Trashed draft: ${draft.uuid}`);
-        draftRemoved = true;
-      } else {
-        app.displayInfoMessage("Draft is already trashed.");
+        removeDraft = folder !== "trash";
       }
       break;
 
@@ -154,13 +145,8 @@ export async function runManageDraftWithPromptExecutor(): Promise<void> {
         draft.isArchived = false;
         draft.isTrashed = false;
         draft.update();
-        log(
-          `[ManageDraftWithPromptExecutor] Moved draft to Inbox: ${draft.uuid}`
-        );
-        // If we were in the archive or trash workspace, we might want to auto-load next.
-        draftRemoved = true;
-      } else {
-        app.displayInfoMessage("Draft is already in Inbox.");
+        removeDraft =
+          folder === "archive" || folder === "trash" || folder === "flagged";
       }
       break;
 
@@ -168,9 +154,8 @@ export async function runManageDraftWithPromptExecutor(): Promise<void> {
       if (!draft.isFlagged) {
         draft.isFlagged = true;
         draft.update();
-        log(`[ManageDraftWithPromptExecutor] Flagged draft: ${draft.uuid}`);
-      } else {
-        app.displayInfoMessage("Draft is already flagged.");
+        // If we were in "flagged" folder, that might not remove it. If we were in "inbox" or "archive," it stays
+        removeDraft = false;
       }
       break;
 
@@ -178,82 +163,35 @@ export async function runManageDraftWithPromptExecutor(): Promise<void> {
       if (draft.isFlagged) {
         draft.isFlagged = false;
         draft.update();
-        log(`[ManageDraftWithPromptExecutor] Unflagged draft: ${draft.uuid}`);
-        // if the workspace was flagged-only, removing the flag means it leaves
-        draftRemoved = true;
-      } else {
-        app.displayInfoMessage("Draft was not flagged.");
+        removeDraft = folder === "flagged";
       }
       break;
 
     case "Queue: MyActionName": {
-      const fallbackData = {
-        draftAction: "MyActionName",
-        params: { reason: "Called from ManageDraftWithPromptExecutor" },
-      };
-      draft.setTemplateTag("ExecutorData", JSON.stringify(fallbackData));
-      log("[ManageDraftWithPromptExecutor] Set ExecutorData for MyActionName.");
-
-      const executor = Action.find("Drafts Action Executor");
-      if (!executor) {
-        showAlert(
-          "Executor Not Found",
-          "Unable to find 'Drafts Action Executor'."
-        );
+      const data = { draftAction: "MyActionName" };
+      draft.setTemplateTag("ExecutorData", JSON.stringify(data));
+      const ex = Action.find("Drafts Action Executor");
+      if (!ex) {
+        showAlert("No Executor", "Can't find 'Drafts Action Executor'.");
         break;
       }
-      const success = app.queueAction(executor, draft);
+      const queued = app.queueAction(ex, draft);
       log(
-        success
-          ? "[ManageDraftWithPromptExecutor] Queued MyActionName successfully."
-          : "[ManageDraftWithPromptExecutor] Failed to queue MyActionName!",
-        !success
-      );
-      // By default, queueing alone might not remove it from workspace unless the action does so
-      break;
-    }
-
-    case "Queue: BatchProcessAction": {
-      const fallbackData = {
-        draftAction: "BatchProcessAction",
-        params: { reason: "Called from ManageDraftWithPromptExecutor" },
-      };
-      draft.setTemplateTag("ExecutorData", JSON.stringify(fallbackData));
-      log(
-        "[ManageDraftWithPromptExecutor] Set ExecutorData for BatchProcessAction."
-      );
-
-      const executor = Action.find("Drafts Action Executor");
-      if (!executor) {
-        showAlert(
-          "Executor Not Found",
-          "Unable to find 'Drafts Action Executor'."
-        );
-        break;
-      }
-      const success = app.queueAction(executor, draft);
-      log(
-        success
-          ? "[ManageDraftWithPromptExecutor] Queued BatchProcessAction successfully."
-          : "[ManageDraftWithPromptExecutor] Failed to queue BatchProcessAction!",
-        !success
+        queued ? "Queued MyActionName." : "Failed to queue MyActionName.",
+        !queued
       );
       break;
     }
   }
 
-  // If the draft was presumably removed from the workspace, we attempt to load next
-  if (draftRemoved && currentIndex !== -1) {
-    const nextDraft = findNextDraft(workspaceDrafts, currentIndex);
-    if (nextDraft) {
-      editor.load(nextDraft);
-      log(
-        `[ManageDraftWithPromptExecutor] Loaded next draft: "${nextDraft.title}" (uuid: ${nextDraft.uuid})`
-      );
+  // If the draft was presumably removed from this workspace, load next from the original array
+  if (removeDraft && currentIndex !== -1) {
+    const next = findNextDraft(workspaceDrafts, currentIndex);
+    if (next) {
+      editor.load(next);
+      log(`Loaded next: "${next.title}" (uuid: ${next.uuid})`);
     } else {
-      log(
-        "[ManageDraftWithPromptExecutor] No next draft found in workspace array."
-      );
+      log("No next draft in array.");
     }
   }
 
@@ -262,19 +200,10 @@ export async function runManageDraftWithPromptExecutor(): Promise<void> {
 
 /**
  * findNextDraft
- *
- * We keep it simple: look at the item after the currentIndex. If none, look at item before.
- * We do NOT check isTrashed/isArchived because the workspace array is presumably already
- * representing what's in this workspace prior to changes.
+ * We just take the item after the current index, else before, ignoring state.
  */
-function findNextDraft(list: Draft[], index: number): Draft | undefined {
-  // forward
-  if (index + 1 < list.length) {
-    return list[index + 1];
-  }
-  // backward
-  if (index - 1 >= 0) {
-    return list[index - 1];
-  }
+function findNextDraft(list: Draft[], idx: number): Draft | undefined {
+  if (idx + 1 < list.length) return list[idx + 1];
+  if (idx - 1 >= 0) return list[idx - 1];
   return undefined;
 }
