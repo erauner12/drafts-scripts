@@ -45,6 +45,79 @@ To run the bundling process in watch mode, use `bun watch`.
 
 ## Usage inside Drafts
 
+### Advanced Usage: Internal Calls, Fallback Template Tags, and Batch Processing
+
+Beyond the basic external URL scenario, the **Drafts Action Executor** can also be invoked directly within Drafts. For instance, you might:
+
+1. Have another Drafts action which sets certain template tags (e.g. `ExecutorData` or `CustomParams`) based on the currently loaded editor draft(s), or even based on a workspace query.
+2. Call `app.queueAction(Action.find("Drafts Action Executor"), currentDraft);`
+3. Let the Executor parse those template tags (or fallback JSON) instead of ephemeral JSON from outside the app.
+
+This approach allows you to batch-process multiple items by:
+- Collecting them in the current workspace or from user prompts.
+- Storing them in a single ephemeral or “temporary” draft with a JSON array of items to process.
+- Then letting the Executor parse and handle them.
+
+### Example: Batch Processing Action
+
+Suppose you want an action that fetches multiple tasks or draft references, stores them in a tag, and then calls the Draft Action Executor. Here is a simplified example, called `BatchProcessAction`:
+
+```ts
+import { log, showAlert } from "../helpers-utils";
+
+declare var draft: {
+	setTemplateTag(key: string, value: string): void;
+};
+
+export function runBatchProcessAction() {
+	// Imagine you collected these items from somewhere in Drafts or another system
+	const itemsToProcess = [
+	{ id: "draft-uuid-1", title: "Draft #1", data: { important: true } },
+	{ id: "draft-uuid-2", title: "Draft #2" },
+	];
+
+	// This example sets up a JSON structure recognized by the Executor
+	// For demonstration, we set "draftAction" to "MyActionName" (from MyActionName.ts)
+	// and store "draftDataList" or "params" as needed.
+	// You can customize the shape to match your own logic.
+	const fallbackJson = {
+	draftAction: "MyActionName",
+	// Could also do "draftDataList" or something else you parse in your action
+	params: {
+		items: itemsToProcess
+	}
+	};
+
+	// Store the JSON in "ExecutorData" so the Executor can pick it up as a fallback
+	draft.setTemplateTag("ExecutorData", JSON.stringify(fallbackJson));
+
+	// Optionally show a message, or just queue the Executor
+	log("[BatchProcessAction] Stored fallback data in ExecutorData tag.");
+
+	// Now queue the Executor action
+	const executorAction = Action.find("Drafts Action Executor");
+	if (!executorAction) {
+	showAlert("Executor Not Found", "Unable to locate Drafts Action Executor.");
+	return;
+	}
+
+	const success = app.queueAction(executorAction, draft);
+	if (!success) {
+	log("[BatchProcessAction] Could not queue Drafts Action Executor.", true);
+	} else {
+	log("[BatchProcessAction] Drafts Action Executor queued successfully.");
+	}
+}
+
+In this example, DraftActionExecutor will parse the fallback JSON from the ExecutorData template tag if it does not find ephemeral JSON in the current draft. It then reads the draftAction (MyActionName) and sets up any relevant params. Finally, it queues MyActionName on whatever “real” draft(s) you create or reference.
+
+Testing:
+	•	Load or create a Draft in the editor (can be empty).
+	•	Run the newly created “BatchProcessAction” to set ExecutorData.
+	•	It queues the “Drafts Action Executor”, which sees the fallback data, and calls “MyActionName”.
+
+Review the log to confirm everything ran as expected.
+
 ### JSON-Based Ephemeral Draft Action
 
 **New Note**: If you supply a `draftData` object, our script creates a brand-new Draft with that content (and optional flags/tags). The ephemeral JSON draft is trashed, but the new Draft persists, allowing the queued action to properly access the template tags and content.
@@ -64,6 +137,7 @@ For example:
     "someParameter": 123
   }
 }
+```
 
 In this scenario, draftData describes the real Draft you want created. Meanwhile, params are stored as CustomParams on that new draft for your queued action. The ephemeral JSON draft is trashed to keep the workspace clean.
 
@@ -74,10 +148,13 @@ In this scenario, draftData describes the real Draft you want created. Meanwhile
 	```js
 	require("custom-scripts/drafts-actions.js");
 	runDraftsActionExecutor();
+  ```
 
 	2.	From your external app or automation, call:
 
+```
 drafts://x-callback-url/create?text={"draftAction":"NameOfAction","params":{"sampleKey":"sampleValue"}}&action=Drafts%20Action%20Executor
+```
 
 ```
 drafts://create?text=%7B%22draftAction%22%3A%22NameOfAction%22%2C%22params%22%3A%7B%22sampleKey%22%3A%22sampleValue%22%7D%7D&action=Drafts%20Action%20Executor

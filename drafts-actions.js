@@ -1518,13 +1518,67 @@ async function completeAllOverdueTasks(todoist) {
   }
   showAlert("Overdue Tasks Completed", "All overdue tasks have been closed.");
 }
+// src/Actions/BatchProcessAction.ts
+function runBatchProcessAction() {
+  const itemsToProcess = [
+    { itemId: "Item-1", data: { note: "First item" } },
+    { itemId: "Item-2", data: { note: "Second item" } }
+  ];
+  const fallbackJson = {
+    draftAction: "MyActionName",
+    params: {
+      items: itemsToProcess
+    }
+  };
+  draft.setTemplateTag("ExecutorData", JSON.stringify(fallbackJson));
+  log("[BatchProcessAction] Set ExecutorData with items to process.");
+  const executorAction = Action.find("Drafts Action Executor");
+  if (!executorAction) {
+    showAlert("Executor Not Found", "Unable to locate 'Drafts Action Executor'.");
+    return;
+  }
+  const success = app.queueAction(executorAction, draft);
+  if (success) {
+    log("[BatchProcessAction] Successfully queued Drafts Action Executor.");
+  } else {
+    log("[BatchProcessAction] Failed to queue Drafts Action Executor.", true);
+  }
+}
 // src/Actions/DraftActionExecutor.ts
 async function runDraftsActionExecutor() {
   try {
     log("[DraftActionExecutor] Starting runDraftsActionExecutor...");
     log(`[DraftActionExecutor] Ephemeral draft content:
 ` + draft.content);
-    const jsonData = JSON.parse(draft.content.trim());
+    let jsonData = {};
+    let usedEphemeral = false;
+    try {
+      const parsed = JSON.parse(draft.content.trim());
+      if (parsed && parsed.draftAction) {
+        jsonData = parsed;
+        usedEphemeral = true;
+        log("[Executor] Found ephemeral JSON with action: " + jsonData.draftAction);
+      }
+    } catch {
+      log("[Executor] No valid ephemeral JSON found, continuing...");
+    }
+    if (!usedEphemeral) {
+      const fallbackData = draft.getTemplateTag("ExecutorData");
+      if (fallbackData) {
+        log("[Executor] Found fallback JSON in 'ExecutorData' tag.");
+        try {
+          const parsedFallback = JSON.parse(fallbackData);
+          Object.assign(jsonData, parsedFallback);
+        } catch {
+          log("[Executor] Could not parse fallback JSON.", true);
+        }
+      }
+    }
+    if (!jsonData.draftAction) {
+      log("[Executor] No 'draftAction' found. Running local logic or exiting...");
+      showAlert("No Action Provided", "Please provide 'draftAction' in the JSON.");
+      return;
+    }
     log("[DraftActionExecutor] Parsed JSON:", false);
     log(JSON.stringify(jsonData), false);
     const actionName = jsonData.draftAction;
