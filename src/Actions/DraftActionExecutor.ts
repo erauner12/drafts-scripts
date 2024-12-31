@@ -78,6 +78,7 @@ export async function runDraftsActionExecutor(): Promise<void> {
       if (jsonData.draftData.flagged === true) {
         realDraft.isFlagged = true;
       }
+      realDraft.setTemplateTag("DraftData", JSON.stringify(jsonData.draftData));
       realDraft.update();
       log(
         "[DraftActionExecutor] Created a new real draft. UUID = " +
