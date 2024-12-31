@@ -2130,69 +2130,98 @@ Current Status:
 // src/Actions/ManageDraftWithPromptExecutor.ts
 async function runManageDraftWithPromptExecutor() {
   if (!draft) {
-    log("[ManageDraftWithPromptExecutor] No draft available!");
+    log("[ManageDraftWithPromptExecutor] No loaded draft found!");
     script.complete();
     return;
   }
-  const p = new Prompt;
-  p.title = "Manage Draft via Executor?";
-  p.message = "Choose how you'd like to handle this draft:";
-  p.addButton("Manage with Prompt");
-  p.addButton("Queue Executor for Another Action");
-  p.addButton("Cancel");
-  if (!p.show() || p.buttonPressed === "Cancel") {
-    log("[ManageDraftWithPromptExecutor] User canceled.");
+  log(`[ManageDraftWithPromptExecutor] Acting on draft: "${draft.title}" (uuid: ${draft.uuid})`);
+  const mainPrompt = new Prompt;
+  mainPrompt.title = "Manage Draft";
+  mainPrompt.message = `Currently loaded draft:
+"${draft.title}"
+
+Content Preview:
+${draft.content.slice(0, 100)}
+...`;
+  mainPrompt.addButton("Archive Draft");
+  mainPrompt.addButton("Trash Draft");
+  mainPrompt.addButton("Toggle Flag");
+  mainPrompt.addButton("Queue: MyActionName");
+  mainPrompt.addButton("Queue: BatchProcessAction");
+  mainPrompt.addButton("Cancel");
+  if (!mainPrompt.show() || mainPrompt.buttonPressed === "Cancel") {
+    log("[ManageDraftWithPromptExecutor] Prompt cancelled or user chose Cancel.");
     script.complete();
     return;
   }
-  if (p.buttonPressed === "Manage with Prompt") {
-    log("[ManageDraftWithPromptExecutor] Redirecting to local manageDraftWithPrompt logic...");
-    await localManageDraftWithPrompt(draft);
-    script.complete();
-    return;
-  }
-  if (p.buttonPressed === "Queue Executor for Another Action") {
-    const fallbackJson = {
-      draftAction: "MyActionName",
-      params: {
-        fromManageDraftPrompt: true,
-        draftUUID: draft.uuid,
-        draftContent: draft.content
+  const choice = mainPrompt.buttonPressed;
+  log(`[ManageDraftWithPromptExecutor] User selected: ${choice}`);
+  switch (choice) {
+    case "Archive Draft":
+      if (draft.isArchived) {
+        app.displayInfoMessage("Draft already in archive.");
+      } else {
+        draft.isArchived = true;
+        draft.update();
+        log(`[ManageDraftWithPromptExecutor] Draft archived: ${draft.uuid}`);
       }
-    };
-    draft.setTemplateTag("ExecutorData", JSON.stringify(fallbackJson));
-    const executor = Action.find("Drafts Action Executor");
-    if (!executor) {
-      showAlert("Executor Not Found", "Unable to locate 'Drafts Action Executor'.");
-      script.complete();
-      return;
+      break;
+    case "Trash Draft":
+      if (draft.isTrashed) {
+        app.displayInfoMessage("Draft already in trash.");
+      } else {
+        draft.isTrashed = true;
+        draft.update();
+        log(`[ManageDraftWithPromptExecutor] Draft trashed: ${draft.uuid}`);
+      }
+      break;
+    case "Toggle Flag":
+      draft.isFlagged = !draft.isFlagged;
+      draft.update();
+      log(`[ManageDraftWithPromptExecutor] Draft flagged status is now: ${draft.isFlagged}`);
+      break;
+    case "Queue: MyActionName": {
+      const fallbackData = {
+        draftAction: "MyActionName",
+        params: {
+          reason: "Executor used from ManageDraftWithPromptExecutor"
+        }
+      };
+      draft.setTemplateTag("ExecutorData", JSON.stringify(fallbackData));
+      log("[ManageDraftWithPromptExecutor] Set ExecutorData with fallback JSON for MyActionName.");
+      const executor = Action.find("Drafts Action Executor");
+      if (!executor) {
+        showAlert("Executor Not Found", "Unable to locate 'Drafts Action Executor'.");
+        break;
+      }
+      const queued = app.queueAction(executor, draft);
+      if (queued) {
+        log("[ManageDraftWithPromptExecutor] Queued MyActionName successfully.");
+      } else {
+        log("[ManageDraftWithPromptExecutor] Failed to queue MyActionName!", true);
+      }
+      break;
     }
-    const success = app.queueAction(executor, draft);
-    if (!success) {
-      log("[ManageDraftWithPromptExecutor] Failed to queue Drafts Action Executor!", true);
-    } else {
-      log("[ManageDraftWithPromptExecutor] Successfully queued Drafts Action Executor.");
+    case "Queue: BatchProcessAction": {
+      const fallbackData = {
+        draftAction: "BatchProcessAction",
+        params: { reason: "User picked BatchProcessAction in orchestrator" }
+      };
+      draft.setTemplateTag("ExecutorData", JSON.stringify(fallbackData));
+      log("[ManageDraftWithPromptExecutor] Set ExecutorData for BatchProcessAction.");
+      const executor = Action.find("Drafts Action Executor");
+      if (!executor) {
+        showAlert("Executor Not Found", "Unable to locate 'Drafts Action Executor'.");
+        break;
+      }
+      const queued = app.queueAction(executor, draft);
+      if (queued) {
+        log("[ManageDraftWithPromptExecutor] Queued BatchProcessAction successfully.");
+      } else {
+        log("[ManageDraftWithPromptExecutor] Failed to queue BatchProcessAction!", true);
+      }
+      break;
     }
-    script.complete();
-    return;
   }
-}
-async function localManageDraftWithPrompt(d) {
-  log("[localManageDraftWithPrompt] Starting...");
-  const localPrompt = new Prompt;
-  localPrompt.title = "Local Draft Prompt";
-  localPrompt.message = `Draft Title: "${d.title}"
-Draft UUID: ${d.uuid}`;
-  localPrompt.addButton("OK");
-  localPrompt.addButton("Cancel");
-  if (!localPrompt.show()) {
-    log("[localManageDraftWithPrompt] User canceled.");
-    return;
-  }
-  log("[localManageDraftWithPrompt] User pressed: " + localPrompt.buttonPressed);
-  if (localPrompt.buttonPressed === "OK") {
-    d.isTrashed = true;
-    d.update();
-    log("[localManageDraftWithPrompt] Draft moved to trash.");
-  }
+  script.complete();
 }

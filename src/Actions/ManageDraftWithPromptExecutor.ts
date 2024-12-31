@@ -1,154 +1,210 @@
+// ManageDraftWithPromptExecutor.ts
+//
+// This script demonstrates an "orchestrator" approach, bridging the loaded editor draft
+// with a user prompt to queue actions or do immediate archive/trash operations. It does
+// not automatically load the next draft. The user can simply open the next draft (via
+// keyboard shortcut, search, or selecting from the workspace) and rerun the script.
+//
+// Usage:
+//  1) Assign a keyboard shortcut to "ManageDraftWithPromptExecutor" to quickly run it on
+//     whichever draft is loaded in the editor.
+//  2) The prompt will offer actions to queue (which can be ephemeral or fallback-based),
+//     or to do simpler tasks like "Archive" or "Trash."
+
 import { log, showAlert } from "../helpers-utils";
 
-/**
- * We'll assume "draft", "editor", "app", and "script" are globally available, as in Drafts.
- * This file extends the idea of "manageDraftWithPrompt" by optionally leveraging the
- * DraftActionExecutor flow (with ephemeral data or fallback).
- */
-
 declare var draft: Draft;
-declare var editor: {
-  load(d: Draft): void;
-};
 declare var app: {
+  queueAction(action: any, d: Draft): boolean;
   currentWorkspace: {
     query(filter: string): Draft[];
   };
-  displayInfoMessage(message: string): void;
-  queueAction(a: any, d: Draft): boolean;
+  displayInfoMessage(msg: string): void;
+};
+declare var editor: {
+  load(d: Draft): void;
 };
 declare var script: {
   complete(): void;
 };
-
-declare class Prompt {
-  title: string;
-  message: string;
-  buttonPressed: string;
-  fieldValues: { [key: string]: any };
-
-  addButton(title: string): void;
-  show(): boolean;
+declare class Action {
+  static find(name: string): any;
 }
-
 interface Draft {
   uuid: string;
   content: string;
   isTrashed: boolean;
   isArchived: boolean;
   isFlagged: boolean;
+  tags: string[];
   title: string;
   update(): void;
-  toJSON(): object;
   addTag(tag: string): void;
-  setTemplateTag(tag: string, value: string): void;
-  getTemplateTag(tag: string): string | null;
+  removeTag(tag: string): void;
+  setTemplateTag(t: string, v: string): void;
+  hasTag(tag: string): boolean;
+}
+
+declare class Prompt {
+  title: string;
+  message: string;
+  buttonPressed: string;
+  fieldValues: { [key: string]: any };
+  addButton(title: string): void;
+  show(): boolean;
 }
 
 /**
- * Example action which uses manageDraftWithPrompt-like logic
- * and optionally spawns the Drafts Action Executor with the current draft
- * so it can be processed by another action in your system.
+ * runManageDraftWithPromptExecutor()
+ *
+ * Presents a menu of possible actions for the currently loaded draft, bridging
+ * direct manipulations (like archive, trash, tags) with the possibility of
+ * queueing an action in the DraftActionExecutor system.
+ *
+ * Does NOT automatically load the next draft. Instead, the user can open the next
+ * draft as they prefer (keyboard shortcut, workspace list, etc.) and rerun this script.
  */
 export async function runManageDraftWithPromptExecutor(): Promise<void> {
   if (!draft) {
-    log("[ManageDraftWithPromptExecutor] No draft available!");
+    log("[ManageDraftWithPromptExecutor] No loaded draft found!");
     script.complete();
     return;
   }
 
-  const p = new Prompt();
-  p.title = "Manage Draft via Executor?";
-  p.message = "Choose how you'd like to handle this draft:";
-  p.addButton("Manage with Prompt");
-  p.addButton("Queue Executor for Another Action");
-  p.addButton("Cancel");
-
-  if (!p.show() || p.buttonPressed === "Cancel") {
-    log("[ManageDraftWithPromptExecutor] User canceled.");
-    script.complete();
-    return;
-  }
-
-  if (p.buttonPressed === "Manage with Prompt") {
-    log(
-      "[ManageDraftWithPromptExecutor] Redirecting to local manageDraftWithPrompt logic..."
-    );
-    // You might import or call your function runManageDraftWithPrompt() here
-    await localManageDraftWithPrompt(draft);
-    script.complete();
-    return;
-  }
-
-  if (p.buttonPressed === "Queue Executor for Another Action") {
-    // We demonstrate how you might gather ephemeral JSON with some default data.
-    // Then rely on the DraftActionExecutor to parse it and queue your real action.
-    const fallbackJson = {
-      draftAction: "MyActionName", // the action you want to call after the Executor
-      // pass essential fields. Possibly use draft.toJSON() or a subset of fields
-      params: {
-        fromManageDraftPrompt: true,
-        draftUUID: draft.uuid,
-        draftContent: draft.content,
-      },
-    };
-
-    // Store in ExecutorData
-    draft.setTemplateTag("ExecutorData", JSON.stringify(fallbackJson));
-
-    // Now queue "Drafts Action Executor" which will parse ephemeral JSON or fallback
-    const executor = Action.find("Drafts Action Executor");
-    if (!executor) {
-      showAlert(
-        "Executor Not Found",
-        "Unable to locate 'Drafts Action Executor'."
-      );
-      script.complete();
-      return;
-    }
-
-    const success = app.queueAction(executor, draft);
-    if (!success) {
-      log(
-        "[ManageDraftWithPromptExecutor] Failed to queue Drafts Action Executor!",
-        true
-      );
-    } else {
-      log(
-        "[ManageDraftWithPromptExecutor] Successfully queued Drafts Action Executor."
-      );
-    }
-    script.complete();
-    return;
-  }
-}
-
-/**
- * This is a minimal inlined version of your manageDraftWithPrompt logic,
- * just for demonstration. If you already have it in ManageDraftWithPrompt.ts,
- * then we can call that function directly.
- */
-async function localManageDraftWithPrompt(d: Draft): Promise<void> {
-  // Do minimal logic or import from your existing code
-  log("[localManageDraftWithPrompt] Starting...");
-  // Example: just show a prompt
-  const localPrompt = new Prompt();
-  localPrompt.title = "Local Draft Prompt";
-  localPrompt.message = `Draft Title: "${d.title}"\nDraft UUID: ${d.uuid}`;
-  localPrompt.addButton("OK");
-  localPrompt.addButton("Cancel");
-  if (!localPrompt.show()) {
-    log("[localManageDraftWithPrompt] User canceled.");
-    return;
-  }
   log(
-    "[localManageDraftWithPrompt] User pressed: " + localPrompt.buttonPressed
+    `[ManageDraftWithPromptExecutor] Acting on draft: "${draft.title}" (uuid: ${draft.uuid})`
   );
 
-  // Suppose we do an inline "delete" for demonstration
-  if (localPrompt.buttonPressed === "OK") {
-    d.isTrashed = true;
-    d.update();
-    log("[localManageDraftWithPrompt] Draft moved to trash.");
+  // Construct a prompt for user to pick how they'd like to handle this draft
+  const mainPrompt = new Prompt();
+  mainPrompt.title = "Manage Draft";
+  mainPrompt.message = `Currently loaded draft:\n"${
+    draft.title
+  }"\n\nContent Preview:\n${draft.content.slice(0, 100)}\n...`;
+
+  // Possible local actions
+  mainPrompt.addButton("Archive Draft");
+  mainPrompt.addButton("Trash Draft");
+  mainPrompt.addButton("Toggle Flag");
+  // Possibly queue an external action (like MyActionName, or other actions)
+  mainPrompt.addButton("Queue: MyActionName");
+  mainPrompt.addButton("Queue: BatchProcessAction");
+  mainPrompt.addButton("Cancel");
+
+  if (!mainPrompt.show() || mainPrompt.buttonPressed === "Cancel") {
+    log(
+      "[ManageDraftWithPromptExecutor] Prompt cancelled or user chose Cancel."
+    );
+    script.complete();
+    return;
   }
+
+  const choice = mainPrompt.buttonPressed;
+  log(`[ManageDraftWithPromptExecutor] User selected: ${choice}`);
+
+  switch (choice) {
+    case "Archive Draft":
+      if (draft.isArchived) {
+        app.displayInfoMessage("Draft already in archive.");
+      } else {
+        draft.isArchived = true;
+        draft.update();
+        log(`[ManageDraftWithPromptExecutor] Draft archived: ${draft.uuid}`);
+        // optional: Reload
+        // editor.load(draft);
+      }
+      break;
+
+    case "Trash Draft":
+      if (draft.isTrashed) {
+        app.displayInfoMessage("Draft already in trash.");
+      } else {
+        draft.isTrashed = true;
+        draft.update();
+        log(`[ManageDraftWithPromptExecutor] Draft trashed: ${draft.uuid}`);
+      }
+      break;
+
+    case "Toggle Flag":
+      draft.isFlagged = !draft.isFlagged;
+      draft.update();
+      log(
+        `[ManageDraftWithPromptExecutor] Draft flagged status is now: ${draft.isFlagged}`
+      );
+      break;
+
+    case "Queue: MyActionName": {
+      // We can do ephemeral JSON or fallback. Let's do fallback:
+      const fallbackData = {
+        draftAction: "MyActionName",
+        params: {
+          reason: "Executor used from ManageDraftWithPromptExecutor",
+        },
+      };
+      draft.setTemplateTag("ExecutorData", JSON.stringify(fallbackData));
+      log(
+        "[ManageDraftWithPromptExecutor] Set ExecutorData with fallback JSON for MyActionName."
+      );
+
+      const executor = Action.find("Drafts Action Executor");
+      if (!executor) {
+        showAlert(
+          "Executor Not Found",
+          "Unable to locate 'Drafts Action Executor'."
+        );
+        break;
+      }
+      const queued = app.queueAction(executor, draft);
+      if (queued) {
+        log(
+          "[ManageDraftWithPromptExecutor] Queued MyActionName successfully."
+        );
+      } else {
+        log(
+          "[ManageDraftWithPromptExecutor] Failed to queue MyActionName!",
+          true
+        );
+      }
+      break;
+    }
+
+    case "Queue: BatchProcessAction": {
+      // Another example of ephemeral fallback approach
+      const fallbackData = {
+        draftAction: "BatchProcessAction",
+        params: { reason: "User picked BatchProcessAction in orchestrator" },
+      };
+      draft.setTemplateTag("ExecutorData", JSON.stringify(fallbackData));
+      log(
+        "[ManageDraftWithPromptExecutor] Set ExecutorData for BatchProcessAction."
+      );
+
+      const executor = Action.find("Drafts Action Executor");
+      if (!executor) {
+        showAlert(
+          "Executor Not Found",
+          "Unable to locate 'Drafts Action Executor'."
+        );
+        break;
+      }
+      const queued = app.queueAction(executor, draft);
+      if (queued) {
+        log(
+          "[ManageDraftWithPromptExecutor] Queued BatchProcessAction successfully."
+        );
+      } else {
+        log(
+          "[ManageDraftWithPromptExecutor] Failed to queue BatchProcessAction!",
+          true
+        );
+      }
+      break;
+    }
+  }
+
+  // Not automatically loading next draft.
+  // If user wants to open the next draft, they can do so manually,
+  // then re-run this script with a keyboard shortcut or toolbar button.
+
+  script.complete();
 }
