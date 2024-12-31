@@ -62,6 +62,15 @@ export async function runDraftsActionExecutor(): Promise<void> {
     }
 
     // If "params" object is present, store it in a template tag for the queued action
+    if (jsonData.draftData) {
+      log(
+        "[DraftActionExecutor] Found draftData. Storing in template tag 'DraftData'."
+      );
+      draft.setTemplateTag("DraftData", JSON.stringify(jsonData.draftData));
+    } else {
+      log("[DraftActionExecutor] No draftData object found in JSON.");
+    }
+
     if (jsonData.params) {
       log(
         "[DraftActionExecutor] Found params. Storing in template tag 'CustomParams'."

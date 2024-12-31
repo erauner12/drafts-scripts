@@ -1526,21 +1526,29 @@ async function runDraftsActionExecutor() {
 ` + draft.content);
     const jsonData = JSON.parse(draft.content.trim());
     log("[DraftActionExecutor] Parsed JSON:", false);
+    log(JSON.stringify(jsonData), false);
     const actionName = jsonData.draftAction;
+    log("[DraftActionExecutor] actionName: " + (actionName || "undefined"));
     if (!actionName) {
       showAlert("No Action Provided", "Please provide 'draftAction' in the JSON.");
       return;
     }
-    const actionToQueue = Action.find(actionName);
-    if (!actionToQueue) {
-      showAlert("Action Not Found", `Could not find an action named: "${actionName}"`);
-      return;
+    if (jsonData.draftData) {
+      log("[DraftActionExecutor] Found draftData. Storing in template tag 'DraftData'.");
+      draft.setTemplateTag("DraftData", JSON.stringify(jsonData.draftData));
+    } else {
+      log("[DraftActionExecutor] No draftData object found in JSON.");
     }
     if (jsonData.params) {
       log("[DraftActionExecutor] Found params. Storing in template tag 'CustomParams'.");
       draft.setTemplateTag("CustomParams", JSON.stringify(jsonData.params));
     } else {
       log("[DraftActionExecutor] No params object found in JSON.");
+    }
+    const actionToQueue = Action.find(actionName);
+    if (!actionToQueue) {
+      showAlert("Action Not Found", `Could not find an action named: "${actionName}"`);
+      return;
     }
     log("[DraftActionExecutor] Queuing action: " + actionName);
     const success = app.queueAction(actionToQueue, draft);
@@ -1557,4 +1565,30 @@ async function runDraftsActionExecutor() {
       log("Trashed ephemeral draft.");
     }
   }
+}
+// src/Actions/MyActionName.ts
+function runMyActionName() {
+  const draftDataRaw = draft.getTemplateTag("DraftData") || "";
+  const customParamsRaw = draft.getTemplateTag("CustomParams") || "";
+  let draftData = {};
+  let customParams = {};
+  try {
+    if (draftDataRaw) {
+      draftData = JSON.parse(draftDataRaw);
+    }
+    if (customParamsRaw) {
+      customParams = JSON.parse(customParamsRaw);
+    }
+  } catch (error) {
+    log("Error parsing template tags: " + String(error), true);
+  }
+  log("=== [MyActionName] runMyActionName() invoked ===");
+  log("DraftData (parsed): " + JSON.stringify(draftData));
+  log("CustomParams (parsed): " + JSON.stringify(customParams));
+  const summary = `DraftData:
+` + JSON.stringify(draftData, null, 2) + `
+
+CustomParams:
+` + JSON.stringify(customParams, null, 2);
+  showAlert("MyActionName Summary", summary);
 }
