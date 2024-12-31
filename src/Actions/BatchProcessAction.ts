@@ -1,75 +1,127 @@
 import { log, showAlert } from "../helpers-utils";
 
 declare var draft: {
+  content: string;
+  uuid: string;
   setTemplateTag(key: string, value: string): void;
+  getTemplateTag(key: string): string | null;
 };
+
 declare var app: {
   queueAction(action: any, draft: any): boolean;
 };
+
 declare class Action {
   static find(name: string): any;
 }
 
-export function runBatchProcessAction() {
-  // First, let's see if there's ANY ephemeral JSON in the current draft (just for logging).
-  const currentDraftContent = draft.content.trim();
-  if (!currentDraftContent) {
+/**
+ * runBatchProcessAction()
+ *
+ * This is a sample "BatchProcessAction" to demonstrate reading ephemeral JSON
+ * versus ExecutorData fallback, plus illustrating how we can store items for further processing
+ * in the ExecutorData tag. The code is pseudo-sample, so adapt to your real usage.
+ */
+export function runBatchProcessAction(): void {
+  log("[BatchProcessAction] Starting runBatchProcessAction...");
+
+  // 1) Check ephemeral JSON from the ephemeral draft
+  let ephemeralJsonRaw = draft.content.trim();
+  let ephemeralJson: any = {};
+  let ephemeralHasDraftAction = false;
+
+  try {
+    let maybeParsed = JSON.parse(ephemeralJsonRaw);
+    if (maybeParsed && maybeParsed.draftAction) {
+      ephemeralJson = maybeParsed;
+      ephemeralHasDraftAction = true;
+      log(
+        "[BatchProcessAction] Detected ephemeral JSON with draftAction: " +
+          ephemeralJson.draftAction
+      );
+    }
+  } catch (err) {
     log(
-      "[BatchProcessAction] Current draft is empty. No ephemeral JSON found. That's okay, we'll rely on fallback data."
+      "[BatchProcessAction] No ephemeral JSON found in draft.content or it didn't parse."
     );
-  } else {
-    // Try to parse the ephemeral JSON just for logging sake
-    try {
-      const ephemeralObj = JSON.parse(currentDraftContent);
-      if (ephemeralObj && ephemeralObj.draftAction) {
+  }
+
+  // 2) If ephemeral JSON not found or missing 'draftAction', check fallback ExecutorData tag
+  let fallbackJsonRaw = "";
+  if (!ephemeralHasDraftAction) {
+    fallbackJsonRaw = draft.getTemplateTag("ExecutorData") || "";
+    if (fallbackJsonRaw) {
+      log("[BatchProcessAction] Found fallback JSON from ExecutorData tag.");
+      try {
+        let fallbackParsed = JSON.parse(fallbackJsonRaw);
+        ephemeralJson = fallbackParsed;
+        ephemeralHasDraftAction = !!fallbackParsed.draftAction;
+      } catch (err) {
         log(
-          "[BatchProcessAction] Detected ephemeral JSON with draftAction: " +
-            ephemeralObj.draftAction
-        );
-      } else {
-        log(
-          "[BatchProcessAction] Detected ephemeral JSON, but no 'draftAction' key."
+          "[BatchProcessAction] Could not parse fallback ExecutorData JSON.",
+          true
         );
       }
-    } catch (e) {
-      log(
-        "[BatchProcessAction] Draft content is not valid JSON, continuing with fallback approach..."
-      );
     }
   }
 
-  // For demonstration, let's collect a hypothetical set of items:
-  const itemsToProcess = [
-    { itemId: "Item-1", data: { note: "First item" } },
-    { itemId: "Item-2", data: { note: "Second item" } },
-  ];
-
-  // We'll instruct the Drafts Action Executor to run "MyActionName"
-  const fallbackJson = {
-    draftAction: "MyActionName",
-    params: {
-      items: itemsToProcess,
-    },
-  };
-
-  // Store this fallback JSON in a template tag
-  draft.setTemplateTag("ExecutorData", JSON.stringify(fallbackJson));
-  log("[BatchProcessAction] Set ExecutorData with items to process.");
-
-  // Now queue the Drafts Action Executor
-  const executorAction = Action.find("Drafts Action Executor");
-  if (!executorAction) {
+  // 3) If still no action name at this point, then user called this action w/o data
+  if (!ephemeralHasDraftAction) {
+    log(
+      "[BatchProcessAction] No ephemeral or fallback JSON with draftAction. We may just show an alert or skip."
+    );
     showAlert(
-      "Executor Not Found",
-      "Unable to locate 'Drafts Action Executor'."
+      "BatchProcessAction",
+      "No 'draftAction' found in ephemeral JSON or ExecutorData. Nothing to process."
     );
     return;
   }
 
-  const success = app.queueAction(executorAction, draft);
-  if (success) {
-    log("[BatchProcessAction] Successfully queued Drafts Action Executor.");
-  } else {
-    log("[BatchProcessAction] Failed to queue Drafts Action Executor.", true);
+  // 4) Suppose ephemeralJson contains some items we want to process. For demonstration:
+  let params = ephemeralJson.params || {};
+  log("[BatchProcessAction] params = " + JSON.stringify(params));
+
+  // 5) Decide next step: maybe we store some data back to ExecutorData or queue a different action.
+  // We'll do a quick example of storing items in ExecutorData. Suppose we want another action called "ProcessItemsAction".
+  if (params.tasks) {
+    log(
+      "[BatchProcessAction] Found tasks array. We'll re-queue 'ProcessItemsAction' with these tasks."
+    );
+
+    let storeObj = {
+      draftAction: "ProcessItemsAction",
+      tasks: params.tasks,
+    };
+    let storeJson = JSON.stringify(storeObj);
+
+    draft.setTemplateTag("ExecutorData", storeJson);
+    log("[BatchProcessAction] Set ExecutorData with items to process.");
+
+    // Now queue the Draft Action Executor again, which *should* see the new ExecutorData and run "ProcessItemsAction".
+    const executor = Action.find("Drafts Action Executor");
+    if (!executor) {
+      log("[BatchProcessAction] Could not find 'Drafts Action Executor'", true);
+      showAlert("Error", "Couldn't find Drafts Action Executor to continue.");
+      return;
+    }
+    let success = app.queueAction(executor, draft);
+    if (success) {
+      log("[BatchProcessAction] Successfully queued Drafts Action Executor.");
+    } else {
+      log("[BatchProcessAction] Failed to queue Drafts Action Executor!", true);
+    }
+
+    return;
   }
+
+  // 6) Otherwise, if we don’t have tasks or something, we might do final processing right here:
+  log(
+    "[BatchProcessAction] No tasks provided, so finishing. You can implement custom logic here."
+  );
+  showAlert(
+    "BatchProcessAction Complete",
+    "Nothing to process or queued next step successfully."
+  );
+
+  // Done
 }

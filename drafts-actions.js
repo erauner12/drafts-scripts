@@ -1520,44 +1520,66 @@ async function completeAllOverdueTasks(todoist) {
 }
 // src/Actions/BatchProcessAction.ts
 function runBatchProcessAction() {
-  const currentDraftContent = draft.content.trim();
-  if (!currentDraftContent) {
-    log("[BatchProcessAction] Current draft is empty. No ephemeral JSON found. That's okay, we'll rely on fallback data.");
-  } else {
-    try {
-      const ephemeralObj = JSON.parse(currentDraftContent);
-      if (ephemeralObj && ephemeralObj.draftAction) {
-        log("[BatchProcessAction] Detected ephemeral JSON with draftAction: " + ephemeralObj.draftAction);
-      } else {
-        log("[BatchProcessAction] Detected ephemeral JSON, but no 'draftAction' key.");
+  log("[BatchProcessAction] Starting runBatchProcessAction...");
+  let ephemeralJsonRaw = draft.content.trim();
+  let ephemeralJson = {};
+  let ephemeralHasDraftAction = false;
+  try {
+    let maybeParsed = JSON.parse(ephemeralJsonRaw);
+    if (maybeParsed && maybeParsed.draftAction) {
+      ephemeralJson = maybeParsed;
+      ephemeralHasDraftAction = true;
+      log("[BatchProcessAction] Detected ephemeral JSON with draftAction: " + ephemeralJson.draftAction);
+    }
+  } catch (err) {
+    log("[BatchProcessAction] No ephemeral JSON found in draft.content or it didn't parse.");
+  }
+  let fallbackJsonRaw = "";
+  if (!ephemeralHasDraftAction) {
+    fallbackJsonRaw = draft.getTemplateTag("ExecutorData") || "";
+    if (fallbackJsonRaw) {
+      log("[BatchProcessAction] Found fallback JSON from ExecutorData tag.");
+      try {
+        let fallbackParsed = JSON.parse(fallbackJsonRaw);
+        ephemeralJson = fallbackParsed;
+        ephemeralHasDraftAction = !!fallbackParsed.draftAction;
+      } catch (err) {
+        log("[BatchProcessAction] Could not parse fallback ExecutorData JSON.", true);
       }
-    } catch (e) {
-      log("[BatchProcessAction] Draft content is not valid JSON, continuing with fallback approach...");
     }
   }
-  const itemsToProcess = [
-    { itemId: "Item-1", data: { note: "First item" } },
-    { itemId: "Item-2", data: { note: "Second item" } }
-  ];
-  const fallbackJson = {
-    draftAction: "MyActionName",
-    params: {
-      items: itemsToProcess
-    }
-  };
-  draft.setTemplateTag("ExecutorData", JSON.stringify(fallbackJson));
-  log("[BatchProcessAction] Set ExecutorData with items to process.");
-  const executorAction = Action.find("Drafts Action Executor");
-  if (!executorAction) {
-    showAlert("Executor Not Found", "Unable to locate 'Drafts Action Executor'.");
+  if (!ephemeralHasDraftAction) {
+    log("[BatchProcessAction] No ephemeral or fallback JSON with draftAction. We may just show an alert or skip.");
+    showAlert("BatchProcessAction", "No 'draftAction' found in ephemeral JSON or ExecutorData. Nothing to process.");
     return;
   }
-  const success = app.queueAction(executorAction, draft);
-  if (success) {
-    log("[BatchProcessAction] Successfully queued Drafts Action Executor.");
-  } else {
-    log("[BatchProcessAction] Failed to queue Drafts Action Executor.", true);
+  let params = ephemeralJson.params || {};
+  log("[BatchProcessAction] params = " + JSON.stringify(params));
+  if (params.tasks) {
+    log("[BatchProcessAction] Found tasks array. We'll re-queue 'ProcessItemsAction' with these tasks.");
+    let storeObj = {
+      draftAction: "ProcessItemsAction",
+      tasks: params.tasks
+    };
+    let storeJson = JSON.stringify(storeObj);
+    draft.setTemplateTag("ExecutorData", storeJson);
+    log("[BatchProcessAction] Set ExecutorData with items to process.");
+    const executor = Action.find("Drafts Action Executor");
+    if (!executor) {
+      log("[BatchProcessAction] Could not find 'Drafts Action Executor'", true);
+      showAlert("Error", "Couldn't find Drafts Action Executor to continue.");
+      return;
+    }
+    let success = app.queueAction(executor, draft);
+    if (success) {
+      log("[BatchProcessAction] Successfully queued Drafts Action Executor.");
+    } else {
+      log("[BatchProcessAction] Failed to queue Drafts Action Executor!", true);
+    }
+    return;
   }
+  log("[BatchProcessAction] No tasks provided, so finishing. You can implement custom logic here.");
+  showAlert("BatchProcessAction Complete", "Nothing to process or queued next step successfully.");
 }
 // src/Actions/DraftActionExecutor.ts
 async function runDraftsActionExecutor() {
