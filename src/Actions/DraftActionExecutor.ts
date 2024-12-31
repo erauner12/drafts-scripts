@@ -9,6 +9,7 @@ declare var draft: {
   uuid: string;
   isTrashed: boolean;
   trash(): void;
+  getTemplateTag(tag: string): string | null;
 };
 
 /**
@@ -45,8 +46,48 @@ export async function runDraftsActionExecutor(): Promise<void> {
     // Log the entire content in case we need debugging
     log("[DraftActionExecutor] Ephemeral draft content:\n" + draft.content);
 
-    // Attempt to parse draft content as JSON
-    const jsonData = JSON.parse(draft.content.trim());
+    // STEP 1: Attempt ephemeral JSON
+    let jsonData: any = {};
+    let usedEphemeral = false;
+    try {
+      const parsed = JSON.parse(draft.content.trim());
+      if (parsed && parsed.draftAction) {
+        jsonData = parsed;
+        usedEphemeral = true;
+        log(
+          "[Executor] Found ephemeral JSON with action: " + jsonData.draftAction
+        );
+      }
+    } catch {
+      log("[Executor] No valid ephemeral JSON found, continuing...");
+    }
+
+    // STEP 2: Fallback to template tag if needed
+    if (!usedEphemeral) {
+      const fallbackData = draft.getTemplateTag("ExecutorData");
+      if (fallbackData) {
+        log("[Executor] Found fallback JSON in 'ExecutorData' tag.");
+        try {
+          const parsedFallback = JSON.parse(fallbackData);
+          Object.assign(jsonData, parsedFallback);
+        } catch {
+          log("[Executor] Could not parse fallback JSON.", true);
+        }
+      }
+    }
+
+    // STEP 3: If still no action, do local fallback
+    if (!jsonData.draftAction) {
+      log(
+        "[Executor] No 'draftAction' found. Running local logic or exiting..."
+      );
+      showAlert(
+        "No Action Provided",
+        "Please provide 'draftAction' in the JSON."
+      );
+      return;
+    }
+
     log("[DraftActionExecutor] Parsed JSON:", false);
     log(JSON.stringify(jsonData), false);
 
