@@ -104,3 +104,4 @@ export { runBatchProcessAction } from "./Actions/BatchProcessAction";
 export { runDraftsActionExecutor } from "./Actions/DraftActionExecutor";
 export { runMyActionName } from "./Actions/MyActionName";
 
+export { runBatchProcessTodoistAction } from "./Actions/BatchProcessTodoistAction";

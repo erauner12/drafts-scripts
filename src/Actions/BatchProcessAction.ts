@@ -11,6 +11,33 @@ declare class Action {
 }
 
 export function runBatchProcessAction() {
+  // First, let's see if there's ANY ephemeral JSON in the current draft (just for logging).
+  const currentDraftContent = draft.content.trim();
+  if (!currentDraftContent) {
+    log(
+      "[BatchProcessAction] Current draft is empty. No ephemeral JSON found. That's okay, we'll rely on fallback data."
+    );
+  } else {
+    // Try to parse the ephemeral JSON just for logging sake
+    try {
+      const ephemeralObj = JSON.parse(currentDraftContent);
+      if (ephemeralObj && ephemeralObj.draftAction) {
+        log(
+          "[BatchProcessAction] Detected ephemeral JSON with draftAction: " +
+            ephemeralObj.draftAction
+        );
+      } else {
+        log(
+          "[BatchProcessAction] Detected ephemeral JSON, but no 'draftAction' key."
+        );
+      }
+    } catch (e) {
+      log(
+        "[BatchProcessAction] Draft content is not valid JSON, continuing with fallback approach..."
+      );
+    }
+  }
+
   // For demonstration, let's collect a hypothetical set of items:
   const itemsToProcess = [
     { itemId: "Item-1", data: { note: "First item" } },

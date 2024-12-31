@@ -1520,6 +1520,21 @@ async function completeAllOverdueTasks(todoist) {
 }
 // src/Actions/BatchProcessAction.ts
 function runBatchProcessAction() {
+  const currentDraftContent = draft.content.trim();
+  if (!currentDraftContent) {
+    log("[BatchProcessAction] Current draft is empty. No ephemeral JSON found. That's okay, we'll rely on fallback data.");
+  } else {
+    try {
+      const ephemeralObj = JSON.parse(currentDraftContent);
+      if (ephemeralObj && ephemeralObj.draftAction) {
+        log("[BatchProcessAction] Detected ephemeral JSON with draftAction: " + ephemeralObj.draftAction);
+      } else {
+        log("[BatchProcessAction] Detected ephemeral JSON, but no 'draftAction' key.");
+      }
+    } catch (e) {
+      log("[BatchProcessAction] Draft content is not valid JSON, continuing with fallback approach...");
+    }
+  }
   const itemsToProcess = [
     { itemId: "Item-1", data: { note: "First item" } },
     { itemId: "Item-2", data: { note: "Second item" } }
@@ -1659,4 +1674,31 @@ function runMyActionName() {
 CustomParams:
 ` + JSON.stringify(customParams, null, 2);
   showAlert("MyActionName Summary", summary);
+}
+// src/Actions/BatchProcessTodoistAction.ts
+function runBatchProcessTodoistAction() {
+  const todoistTasks = [
+    { id: 12345, content: "Todoist Task #1" },
+    { id: 67890, content: "Todoist Task #2", due: { date: "2025-01-01" } }
+  ];
+  const fallbackJson = {
+    draftAction: "MyActionName",
+    params: {
+      tasks: todoistTasks,
+      source: "BatchProcessTodoistAction"
+    }
+  };
+  draft.setTemplateTag("ExecutorData", JSON.stringify(fallbackJson));
+  log("[BatchProcessTodoistAction] Wrote fallback JSON to ExecutorData tag.");
+  const executorAction = Action.find("Drafts Action Executor");
+  if (!executorAction) {
+    showAlert("Executor Not Found", "Unable to locate 'Drafts Action Executor'.");
+    return;
+  }
+  const success = app.queueAction(executorAction, draft);
+  if (success) {
+    log("[BatchProcessTodoistAction] Successfully queued Drafts Action Executor.");
+  } else {
+    log("[BatchProcessTodoistAction] Failed to queue Drafts Action Executor.", true);
+  }
 }
