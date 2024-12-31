@@ -1,3 +1,47 @@
+/**
+ * MyActionName
+ *
+ * This action demonstrates a flexible approach that supports three usage scenarios:
+ *
+ * 1) Ephemeral JSON (from External URL or some ephemeral draft):
+ *    - If the user calls Drafts via x-callback-url with a JSON payload including
+ *      `{"draftAction":"MyActionName","params":{...}}`, then DraftActionExecutor
+ *      will parse that ephemeral JSON and store it as `draftData` or `customParams`.
+ *    - Inside runMyActionName(), we read those objects to perform data-driven logic.
+ *
+ * 2) Fallback JSON (ExecutorData Tag):
+ *    - If ephemeral JSON is not found, DraftActionExecutor looks for fallback JSON in
+ *      the "ExecutorData" template tag on the current draft.
+ *    - If it finds `{"draftAction":"MyActionName","params":{...}}` there, we parse
+ *      and proceed similarly.
+ *
+ * 3) Directly using the loaded Draft in the Editor:
+ *    - If neither ephemeral nor fallback JSON are found, we fall back to the
+ *      current draft in the editor. The example logs the draft’s content,
+ *      sets a scoped tag, and updates the draft.
+ *    - This scenario is helpful when you invoke the Executor (or queue an action)
+ *      without structured JSON, but still want to operate on the “active” draft
+ *      loaded in the editor.
+ *
+ * Key Points in the Code:
+ *  - We do `draftData = JSON.parse(...)` or fallback logic if ephemeral data is not found.
+ *  - If `draftData` and `customParams` are empty, we look at `draft.content`,
+ *    `draft.tags`, etc., to manipulate the loaded draft.
+ *  - We specifically show how to add a “status::processed” scoped tag,
+ *    how to log `draft.toJSON()`, and how to reload the draft in the editor to
+ *    reflect those changes.
+ *
+ * Usage in Your Own Actions:
+ *  - You can replicate this pattern in your own actions.
+ *  - If your action is intended to be triggered by ephemeral JSON
+ *    (like from an external script or app), it will process that data.
+ *  - Otherwise, it can gracefully operate on the currently loaded draft
+ *    without requiring an ephemeral payload.
+ *
+ * For more details, see the DraftActionExecutor and the ephemeral JSON
+ * approach in the repository’s documentation.
+ */
+
 import { log, showAlert } from "../helpers-utils";
 
 // We'll assume "draft" is available globally in Drafts
