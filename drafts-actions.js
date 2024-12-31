@@ -1787,16 +1787,14 @@ async function runManageDraftWithPromptExecutor() {
   const workspaceDrafts = app.currentWorkspace.query("all");
   const currentIndex = workspaceDrafts.findIndex((dr) => dr.uuid === draft.uuid);
   if (currentIndex === -1) {
-    log("[ManageDraftWithPromptExecutor] Current draft not found in workspace 'all' query. Possibly filtered out?");
+    log("[ManageDraftWithPromptExecutor] Current draft not in workspace array; continuing anyway.");
   }
   const p = new Prompt;
   p.title = "Manage Draft";
-  p.message = `Current draft:
-"${draft.title}"
+  p.message = `"${draft.title}"
 
-Content Preview:
-${draft.content.slice(0, 100)}
-...`;
+Content:
+${draft.content.slice(0, 100)}`;
   p.addButton("Archive");
   p.addButton("Trash");
   p.addButton("Toggle Flag");
@@ -1804,51 +1802,52 @@ ${draft.content.slice(0, 100)}
   p.addButton("Queue: BatchProcessAction");
   p.addButton("Cancel");
   if (!p.show() || p.buttonPressed === "Cancel") {
-    log("[ManageDraftWithPromptExecutor] User canceled prompt or pressed Cancel.");
+    log("[ManageDraftWithPromptExecutor] User canceled prompt.");
     script.complete();
     return;
   }
   const choice = p.buttonPressed;
   log(`[ManageDraftWithPromptExecutor] User selected: ${choice}`);
-  let removeFromWorkspace = false;
+  let removeDraft = false;
   switch (choice) {
     case "Archive":
-      if (draft.isArchived) {
-        app.displayInfoMessage("Draft already archived.");
-      } else {
+      if (!draft.isArchived) {
         draft.isArchived = true;
         draft.update();
-        log(`[ManageDraftWithPromptExecutor] Archived draft ${draft.uuid}.`);
-        removeFromWorkspace = true;
+        log(`[ManageDraftWithPromptExecutor] Draft archived: ${draft.uuid}`);
+      } else {
+        app.displayInfoMessage("Draft is already archived.");
       }
+      removeDraft = true;
       break;
     case "Trash":
-      if (draft.isTrashed) {
-        app.displayInfoMessage("Draft already trashed.");
-      } else {
+      if (!draft.isTrashed) {
         draft.isTrashed = true;
         draft.update();
-        log(`[ManageDraftWithPromptExecutor] Trashed draft ${draft.uuid}.`);
-        removeFromWorkspace = true;
+        log(`[ManageDraftWithPromptExecutor] Draft trashed: ${draft.uuid}`);
+      } else {
+        app.displayInfoMessage("Draft is already trashed.");
       }
+      removeDraft = true;
       break;
     case "Toggle Flag":
       draft.isFlagged = !draft.isFlagged;
       draft.update();
-      log(`[ManageDraftWithPromptExecutor] Toggled flag, now isFlagged = ${draft.isFlagged}`);
+      log(`[ManageDraftWithPromptExecutor] Flag toggled. Now isFlagged = ${draft.isFlagged}`);
+      removeDraft = true;
       break;
     case "Queue: MyActionName": {
       const fallbackData = {
         draftAction: "MyActionName",
         params: {
-          reason: "User picked MyActionName in orchestrator"
+          context: "Chosen from ManageDraftWithPromptExecutor"
         }
       };
       draft.setTemplateTag("ExecutorData", JSON.stringify(fallbackData));
       log("[ManageDraftWithPromptExecutor] Set ExecutorData for MyActionName.");
       const executor = Action.find("Drafts Action Executor");
       if (!executor) {
-        showAlert("Executor Not Found", "Could not find 'Drafts Action Executor'.");
+        showAlert("Executor Not Found", "Cannot find 'Drafts Action Executor'.");
         break;
       }
       const queued = app.queueAction(executor, draft);
@@ -1862,13 +1861,13 @@ ${draft.content.slice(0, 100)}
     case "Queue: BatchProcessAction": {
       const fallbackData = {
         draftAction: "BatchProcessAction",
-        params: { reason: "User picked BatchProcessAction in orchestrator" }
+        params: { context: "Chosen from ManageDraftWithPromptExecutor" }
       };
       draft.setTemplateTag("ExecutorData", JSON.stringify(fallbackData));
       log("[ManageDraftWithPromptExecutor] Set ExecutorData for BatchProcessAction.");
       const executor = Action.find("Drafts Action Executor");
       if (!executor) {
-        showAlert("Executor Not Found", "Could not find 'Drafts Action Executor'.");
+        showAlert("Executor Not Found", "Cannot find 'Drafts Action Executor'.");
         break;
       }
       const queued = app.queueAction(executor, draft);
@@ -1880,27 +1879,23 @@ ${draft.content.slice(0, 100)}
       break;
     }
   }
-  if (removeFromWorkspace && currentIndex !== -1) {
-    const nextDraft = findNextDraftInWorkspace(workspaceDrafts, currentIndex);
-    if (nextDraft) {
-      editor.load(nextDraft);
-      log(`[ManageDraftWithPromptExecutor] Loaded next draft: "${nextDraft.title}" (uuid: ${nextDraft.uuid})`);
+  if (removeDraft && currentIndex !== -1) {
+    const next = findNextDraft(workspaceDrafts, currentIndex);
+    if (next) {
+      editor.load(next);
+      log(`[ManageDraftWithPromptExecutor] Loaded next: "${next.title}" (uuid: ${next.uuid})`);
     } else {
-      log("[ManageDraftWithPromptExecutor] Could not find another draft to load in the workspace.");
+      log("[ManageDraftWithPromptExecutor] No next draft found in the workspace array.");
     }
   }
   script.complete();
 }
-function findNextDraftInWorkspace(workspaceDrafts, currentIndex) {
-  for (let i = currentIndex + 1;i < workspaceDrafts.length; i++) {
-    if (!workspaceDrafts[i].isArchived && !workspaceDrafts[i].isTrashed) {
-      return workspaceDrafts[i];
-    }
+function findNextDraft(list, index) {
+  if (index + 1 < list.length) {
+    return list[index + 1];
   }
-  for (let i = currentIndex - 1;i >= 0; i--) {
-    if (!workspaceDrafts[i].isArchived && !workspaceDrafts[i].isTrashed) {
-      return workspaceDrafts[i];
-    }
+  if (index - 1 >= 0) {
+    return list[index - 1];
   }
   return;
 }
