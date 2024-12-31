@@ -1787,17 +1787,30 @@ async function runManageDraftWithPromptExecutor() {
   const workspaceDrafts = app.currentWorkspace.query("all");
   const currentIndex = workspaceDrafts.findIndex((dr) => dr.uuid === draft.uuid);
   if (currentIndex === -1) {
-    log("[ManageDraftWithPromptExecutor] Current draft not in workspace array; continuing anyway.");
+    log("[ManageDraftWithPromptExecutor] Current draft not found in workspace array. Possibly filtered out already?");
   }
   const p = new Prompt;
   p.title = "Manage Draft";
-  p.message = `"${draft.title}"
+  p.message = `[${draft.uuid}]
+"${draft.title}"
 
-Content:
+Content Preview:
 ${draft.content.slice(0, 100)}`;
-  p.addButton("Archive");
-  p.addButton("Trash");
-  p.addButton("Toggle Flag");
+  if (draft.isArchived) {
+    p.addButton("Move to Inbox");
+  } else if (!draft.isTrashed) {
+    p.addButton("Archive");
+  }
+  if (draft.isTrashed) {
+    p.addButton("Move to Inbox");
+  } else {
+    p.addButton("Trash");
+  }
+  if (draft.isFlagged) {
+    p.addButton("Unflag");
+  } else {
+    p.addButton("Flag");
+  }
   p.addButton("Queue: MyActionName");
   p.addButton("Queue: BatchProcessAction");
   p.addButton("Cancel");
@@ -1808,84 +1821,98 @@ ${draft.content.slice(0, 100)}`;
   }
   const choice = p.buttonPressed;
   log(`[ManageDraftWithPromptExecutor] User selected: ${choice}`);
-  let removeDraft = false;
+  let draftRemoved = false;
   switch (choice) {
     case "Archive":
       if (!draft.isArchived) {
         draft.isArchived = true;
         draft.update();
-        log(`[ManageDraftWithPromptExecutor] Draft archived: ${draft.uuid}`);
+        log(`[ManageDraftWithPromptExecutor] Archived draft: ${draft.uuid}`);
+        draftRemoved = true;
       } else {
         app.displayInfoMessage("Draft is already archived.");
       }
-      removeDraft = true;
       break;
     case "Trash":
       if (!draft.isTrashed) {
         draft.isTrashed = true;
         draft.update();
-        log(`[ManageDraftWithPromptExecutor] Draft trashed: ${draft.uuid}`);
+        log(`[ManageDraftWithPromptExecutor] Trashed draft: ${draft.uuid}`);
+        draftRemoved = true;
       } else {
         app.displayInfoMessage("Draft is already trashed.");
       }
-      removeDraft = true;
       break;
-    case "Toggle Flag":
-      draft.isFlagged = !draft.isFlagged;
-      draft.update();
-      log(`[ManageDraftWithPromptExecutor] Flag toggled. Now isFlagged = ${draft.isFlagged}`);
-      removeDraft = true;
+    case "Move to Inbox":
+      if (draft.isArchived || draft.isTrashed) {
+        draft.isArchived = false;
+        draft.isTrashed = false;
+        draft.update();
+        log(`[ManageDraftWithPromptExecutor] Moved draft to Inbox: ${draft.uuid}`);
+        draftRemoved = true;
+      } else {
+        app.displayInfoMessage("Draft is already in Inbox.");
+      }
+      break;
+    case "Flag":
+      if (!draft.isFlagged) {
+        draft.isFlagged = true;
+        draft.update();
+        log(`[ManageDraftWithPromptExecutor] Flagged draft: ${draft.uuid}`);
+      } else {
+        app.displayInfoMessage("Draft is already flagged.");
+      }
+      break;
+    case "Unflag":
+      if (draft.isFlagged) {
+        draft.isFlagged = false;
+        draft.update();
+        log(`[ManageDraftWithPromptExecutor] Unflagged draft: ${draft.uuid}`);
+        draftRemoved = true;
+      } else {
+        app.displayInfoMessage("Draft was not flagged.");
+      }
       break;
     case "Queue: MyActionName": {
       const fallbackData = {
         draftAction: "MyActionName",
-        params: {
-          context: "Chosen from ManageDraftWithPromptExecutor"
-        }
+        params: { reason: "Called from ManageDraftWithPromptExecutor" }
       };
       draft.setTemplateTag("ExecutorData", JSON.stringify(fallbackData));
       log("[ManageDraftWithPromptExecutor] Set ExecutorData for MyActionName.");
       const executor = Action.find("Drafts Action Executor");
       if (!executor) {
-        showAlert("Executor Not Found", "Cannot find 'Drafts Action Executor'.");
+        showAlert("Executor Not Found", "Unable to find 'Drafts Action Executor'.");
         break;
       }
-      const queued = app.queueAction(executor, draft);
-      if (!queued) {
-        log("[ManageDraftWithPromptExecutor] Failed to queue MyActionName!", true);
-      } else {
-        log("[ManageDraftWithPromptExecutor] Queued MyActionName successfully.");
-      }
+      const success = app.queueAction(executor, draft);
+      log(success ? "[ManageDraftWithPromptExecutor] Queued MyActionName successfully." : "[ManageDraftWithPromptExecutor] Failed to queue MyActionName!", !success);
       break;
     }
     case "Queue: BatchProcessAction": {
       const fallbackData = {
         draftAction: "BatchProcessAction",
-        params: { context: "Chosen from ManageDraftWithPromptExecutor" }
+        params: { reason: "Called from ManageDraftWithPromptExecutor" }
       };
       draft.setTemplateTag("ExecutorData", JSON.stringify(fallbackData));
       log("[ManageDraftWithPromptExecutor] Set ExecutorData for BatchProcessAction.");
       const executor = Action.find("Drafts Action Executor");
       if (!executor) {
-        showAlert("Executor Not Found", "Cannot find 'Drafts Action Executor'.");
+        showAlert("Executor Not Found", "Unable to find 'Drafts Action Executor'.");
         break;
       }
-      const queued = app.queueAction(executor, draft);
-      if (!queued) {
-        log("[ManageDraftWithPromptExecutor] Failed to queue BatchProcessAction!", true);
-      } else {
-        log("[ManageDraftWithPromptExecutor] Queued BatchProcessAction successfully.");
-      }
+      const success = app.queueAction(executor, draft);
+      log(success ? "[ManageDraftWithPromptExecutor] Queued BatchProcessAction successfully." : "[ManageDraftWithPromptExecutor] Failed to queue BatchProcessAction!", !success);
       break;
     }
   }
-  if (removeDraft && currentIndex !== -1) {
-    const next = findNextDraft(workspaceDrafts, currentIndex);
-    if (next) {
-      editor.load(next);
-      log(`[ManageDraftWithPromptExecutor] Loaded next: "${next.title}" (uuid: ${next.uuid})`);
+  if (draftRemoved && currentIndex !== -1) {
+    const nextDraft = findNextDraft(workspaceDrafts, currentIndex);
+    if (nextDraft) {
+      editor.load(nextDraft);
+      log(`[ManageDraftWithPromptExecutor] Loaded next draft: "${nextDraft.title}" (uuid: ${nextDraft.uuid})`);
     } else {
-      log("[ManageDraftWithPromptExecutor] No next draft found in the workspace array.");
+      log("[ManageDraftWithPromptExecutor] No next draft found in workspace array.");
     }
   }
   script.complete();
