@@ -23,6 +23,14 @@ declare class Action {
  * in the ExecutorData tag. The code is pseudo-sample, so adapt to your real usage.
  */
 export function runBatchProcessAction(): void {
+  // If ephemeral draft is already processed under this scope, skip
+  if (draft.hasTag("status::batch-processed")) {
+    log(
+      "[BatchProcessAction] Draft has 'status::batch-processed'; skipping re-processing."
+    );
+    return;
+  }
+
   log("[BatchProcessAction] Starting runBatchProcessAction...");
 
   // 1) Check ephemeral JSON from the ephemeral draft
@@ -122,6 +130,10 @@ export function runBatchProcessAction(): void {
     "BatchProcessAction Complete",
     "Nothing to process or queued next step successfully."
   );
+
+  // Mark ephemeral draft as batch-processed
+  draft.addTag("status::batch-processed");
+  draft.update();
 
   // Done
 }

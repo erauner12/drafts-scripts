@@ -1520,6 +1520,10 @@ async function completeAllOverdueTasks(todoist) {
 }
 // src/Actions/BatchProcessAction.ts
 function runBatchProcessAction() {
+  if (draft.hasTag("status::batch-processed")) {
+    log("[BatchProcessAction] Draft has 'status::batch-processed'; skipping re-processing.");
+    return;
+  }
   log("[BatchProcessAction] Starting runBatchProcessAction...");
   let ephemeralJsonRaw = draft.content.trim();
   let ephemeralJson = {};
@@ -1580,9 +1584,15 @@ function runBatchProcessAction() {
   }
   log("[BatchProcessAction] No tasks provided, so finishing. You can implement custom logic here.");
   showAlert("BatchProcessAction Complete", "Nothing to process or queued next step successfully.");
+  draft.addTag("status::batch-processed");
+  draft.update();
 }
 // src/Actions/DraftActionExecutor.ts
 async function runDraftsActionExecutor() {
+  if (draft.hasTag("status::processed")) {
+    log("[DraftActionExecutor] Ephemeral draft has 'status::processed'; skipping re-processing.");
+    return;
+  }
   try {
     log("[DraftActionExecutor] Starting runDraftsActionExecutor...");
     log(`[DraftActionExecutor] Ephemeral draft content:
@@ -1661,6 +1671,8 @@ async function runDraftsActionExecutor() {
       log(`Failed to queue action "${actionName}".`, true);
     } else {
       log(`Queued action "${actionName}" successfully.`);
+      draft.addTag("status::processed");
+      draft.update();
     }
   } catch (error) {
     log(`Error in runDraftsActionExecutor: ${String(error)}`, true);

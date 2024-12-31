@@ -40,6 +40,14 @@ declare class Action {
  * from `draft.getTemplateTag("...")` or other structures if desired.
  */
 export async function runDraftsActionExecutor(): Promise<void> {
+  // If ephemeral draft is already processed, skip
+  if (draft.hasTag("status::processed")) {
+    log(
+      "[DraftActionExecutor] Ephemeral draft has 'status::processed'; skipping re-processing."
+    );
+    return;
+  }
+
   try {
     log("[DraftActionExecutor] Starting runDraftsActionExecutor...");
 
@@ -162,6 +170,10 @@ export async function runDraftsActionExecutor(): Promise<void> {
       log(`Failed to queue action "${actionName}".`, true);
     } else {
       log(`Queued action "${actionName}" successfully.`);
+
+      // Mark the ephemeral draft as processed
+      draft.addTag("status::processed");
+      draft.update();
     }
   } catch (error) {
     log(`Error in runDraftsActionExecutor: ${String(error)}`, true);
