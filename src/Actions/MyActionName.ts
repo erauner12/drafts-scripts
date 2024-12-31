@@ -28,7 +28,55 @@ export function runMyActionName() {
   log("DraftData (parsed): " + JSON.stringify(draftData));
   log("CustomParams (parsed): " + JSON.stringify(customParams));
 
-  // For demonstration, let's show an alert summarizing them:
+  // If ephemeral data doesn't exist (both empty), let's handle the loaded draft directly
+  if (
+    (!draftData || Object.keys(draftData).length === 0) &&
+    (!customParams || Object.keys(customParams).length === 0)
+  ) {
+    log(
+      "[MyActionName] No ephemeral JSON data found. Processing loaded draft directly..."
+    );
+
+    // Log basic info about the loaded draft
+    const loadedContent = draft.content;
+    log("[MyActionName] Loaded draft content:\n" + loadedContent);
+    log("[MyActionName] Draft metadata:");
+    log(" • UUID: " + draft.uuid);
+    log(" • Title: " + draft.title);
+    log(" • isTrashed: " + draft.isTrashed);
+    log(" • isArchived: " + draft.isArchived);
+    log(" • isFlagged: " + draft.isFlagged);
+    log(" • Current Tags: " + draft.tags.join(", "));
+
+    // We could manipulate the draft, e.g. add a scoped tag
+    // For demonstration, let's add "status::processed"
+    if (!draft.hasTag("status::processed")) {
+      draft.addTag("status::processed");
+      draft.update();
+      log(
+        "[MyActionName] Added scoped tag 'status::processed' to the loaded draft."
+      );
+    }
+
+    // Show an alert summarizing the changes we made
+    let draftSummary = `
+UUID: ${draft.uuid}
+Title: ${draft.title}
+Tags: ${draft.tags.join(", ")}
+isFlagged: ${draft.isFlagged}
+isTrashed: ${draft.isTrashed}
+isArchived: ${draft.isArchived}
+
+Content:
+${draft.content}
+    `;
+    showAlert(
+      "[MyActionName] No ephemeral JSON data",
+      "We processed the loaded draft:\n" + draftSummary
+    );
+  }
+
+  // For demonstration, let's show an alert summarizing ephemeral data or fallback usage
   const summary =
     "DraftData:\n" +
     JSON.stringify(draftData, null, 2) +

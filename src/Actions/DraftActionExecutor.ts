@@ -84,15 +84,56 @@ export async function runDraftsActionExecutor(): Promise<void> {
       }
     }
 
-    // STEP 3: If still no action, do local fallback
+    // STEP 3: If still no action, fall back to the currently loaded draft in the editor
     if (!jsonData.draftAction) {
-      log(
-        "[Executor] No 'draftAction' found. Running local logic or exiting..."
-      );
-      showAlert(
-        "No Action Provided",
-        "Please provide 'draftAction' in the JSON."
-      );
+      log("[Executor] No 'draftAction' found in ephemeral/fallback JSON.");
+
+      // We'll prompt the user for how they'd like to proceed with the loaded draft.
+      // If you prefer a silent fallback, you can remove the prompt and auto-run some default logic.
+      const p = new Prompt();
+      p.title = "No draftAction Found";
+      p.message =
+        "Would you like to pick an action to run on the currently loaded draft in the editor?";
+      p.addButton("Pick Action");
+      p.addButton("Cancel");
+      if (!p.show() || p.buttonPressed === "Cancel") {
+        log("[Executor] User canceled or no ephemeral JSON. Exiting.");
+        return;
+      }
+
+      // Suppose we let user pick from a short list of known actions:
+      const actionPrompt = new Prompt();
+      actionPrompt.title = "Select Action";
+      actionPrompt.message = "Choose an action to run on this draft:";
+      actionPrompt.addButton("MyActionName");
+      actionPrompt.addButton("BatchProcessAction");
+      actionPrompt.addButton("Cancel");
+      if (!actionPrompt.show() || actionPrompt.buttonPressed === "Cancel") {
+        log("[Executor] User canceled second prompt. Exiting.");
+        return;
+      }
+
+      // Now we have an action name from the user
+      const chosenActionName = actionPrompt.buttonPressed;
+      log("[Executor] User selected fallback action: " + chosenActionName);
+
+      const fallbackAction = Action.find(chosenActionName);
+      if (!fallbackAction) {
+        showAlert(
+          "Action Not Found",
+          `Could not find an action named: "${chosenActionName}"`
+        );
+        return;
+      }
+
+      // We'll queue that action on the current ephemeral draft (or the editor's loaded draft).
+      // If you'd rather run it on a new draft, or load from a workspace, do so here.
+      const success = app.queueAction(fallbackAction, draft);
+      if (!success) {
+        log(`Failed to queue fallback action "${chosenActionName}".`, true);
+      } else {
+        log(`Queued fallback action "${chosenActionName}" successfully.`);
+      }
       return;
     }
 

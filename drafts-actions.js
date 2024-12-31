@@ -1622,8 +1622,39 @@ async function runDraftsActionExecutor() {
       }
     }
     if (!jsonData.draftAction) {
-      log("[Executor] No 'draftAction' found. Running local logic or exiting...");
-      showAlert("No Action Provided", "Please provide 'draftAction' in the JSON.");
+      log("[Executor] No 'draftAction' found in ephemeral/fallback JSON.");
+      const p = new Prompt;
+      p.title = "No draftAction Found";
+      p.message = "Would you like to pick an action to run on the currently loaded draft in the editor?";
+      p.addButton("Pick Action");
+      p.addButton("Cancel");
+      if (!p.show() || p.buttonPressed === "Cancel") {
+        log("[Executor] User canceled or no ephemeral JSON. Exiting.");
+        return;
+      }
+      const actionPrompt = new Prompt;
+      actionPrompt.title = "Select Action";
+      actionPrompt.message = "Choose an action to run on this draft:";
+      actionPrompt.addButton("MyActionName");
+      actionPrompt.addButton("BatchProcessAction");
+      actionPrompt.addButton("Cancel");
+      if (!actionPrompt.show() || actionPrompt.buttonPressed === "Cancel") {
+        log("[Executor] User canceled second prompt. Exiting.");
+        return;
+      }
+      const chosenActionName = actionPrompt.buttonPressed;
+      log("[Executor] User selected fallback action: " + chosenActionName);
+      const fallbackAction = Action.find(chosenActionName);
+      if (!fallbackAction) {
+        showAlert("Action Not Found", `Could not find an action named: "${chosenActionName}"`);
+        return;
+      }
+      const success2 = app.queueAction(fallbackAction, draft);
+      if (!success2) {
+        log(`Failed to queue fallback action "${chosenActionName}".`, true);
+      } else {
+        log(`Queued fallback action "${chosenActionName}" successfully.`);
+      }
       return;
     }
     log("[DraftActionExecutor] Parsed JSON:", false);
@@ -1702,6 +1733,37 @@ function runMyActionName() {
   log("=== [MyActionName] runMyActionName() invoked ===");
   log("DraftData (parsed): " + JSON.stringify(draftData));
   log("CustomParams (parsed): " + JSON.stringify(customParams));
+  if ((!draftData || Object.keys(draftData).length === 0) && (!customParams || Object.keys(customParams).length === 0)) {
+    log("[MyActionName] No ephemeral JSON data found. Processing loaded draft directly...");
+    const loadedContent = draft.content;
+    log(`[MyActionName] Loaded draft content:
+` + loadedContent);
+    log("[MyActionName] Draft metadata:");
+    log(" • UUID: " + draft.uuid);
+    log(" • Title: " + draft.title);
+    log(" • isTrashed: " + draft.isTrashed);
+    log(" • isArchived: " + draft.isArchived);
+    log(" • isFlagged: " + draft.isFlagged);
+    log(" • Current Tags: " + draft.tags.join(", "));
+    if (!draft.hasTag("status::processed")) {
+      draft.addTag("status::processed");
+      draft.update();
+      log("[MyActionName] Added scoped tag 'status::processed' to the loaded draft.");
+    }
+    let draftSummary = `
+UUID: ${draft.uuid}
+Title: ${draft.title}
+Tags: ${draft.tags.join(", ")}
+isFlagged: ${draft.isFlagged}
+isTrashed: ${draft.isTrashed}
+isArchived: ${draft.isArchived}
+
+Content:
+${draft.content}
+    `;
+    showAlert("[MyActionName] No ephemeral JSON data", `We processed the loaded draft:
+` + draftSummary);
+  }
   const summary = `DraftData:
 ` + JSON.stringify(draftData, null, 2) + `
 
