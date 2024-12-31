@@ -1,20 +1,17 @@
-import { log, showAlert } from "../helpers-utils";
+// ManageDraftWithPromptExecutor.ts
+//
+// This script demonstrates an "orchestrator" approach for the currently loaded
+// draft in the editor. The user can:
+//  - Archive or Trash the draft, after which we attempt to load the "next" relevant draft
+//    from the same workspace.
+//  - Toggle Flag or do other local modifications.
+//  - Queue an external action (like MyActionName or BatchProcessAction) via
+//    DraftActionExecutor.
+//
+// We fix the scenario where trashing the draft is not found in the workspace
+// by capturing the workspace's array and the draft's index BEFORE we modify it.
 
-/**
- * ManageDraftWithPromptExecutor.ts
- *
- * This script demonstrates an "orchestrator" approach for the currently loaded
- * draft in the editor. The user can:
- *  - Archive or Trash the draft, upon which we auto-load the next relevant draft
- *    from the same workspace.
- *  - Toggle Flag or do other local modifications.
- *  - Queue an external action (like MyActionName or BatchProcessAction) via
- *    DraftActionExecutor and ephemeral/fallback JSON.
- *
- * Once we've done an operation that removes the draft from the workspace
- * (archive or trash), we attempt to load the next relevant draft from the
- * workspace so the user can continue processing. If none is found, we simply end.
- */
+import { log, showAlert } from "../helpers-utils";
 
 declare var draft: Draft;
 declare var app: {
@@ -61,14 +58,15 @@ declare class Prompt {
 /**
  * runManageDraftWithPromptExecutor()
  *
- * Usage:
- *  - Assign a keyboard shortcut or toolbar button to this action.
- *  - Open a draft in the editor, run the action, pick an option in the prompt.
- *  - If you archive or trash the draft, this script tries to load the next
- *    unarchived/untrashed draft in the current workspace (scanning forward, then backward).
- *  - If you queue an external action, we add ephemeral/fallback JSON to the draft
- *    and call the DraftActionExecutor.
+ * Steps:
+ * 1) Capture the workspace array and the index of the current draft in that array, so that
+ *    even if we remove the draft from the workspace (trash or archive), we still know where
+ *    it was and can find the next item reliably.
+ * 2) Show the user a prompt to pick an action (Archive, Trash, Flag, or Queue an external action).
+ * 3) If we do something that removes the draft from the workspace, we load the next untrashed/unarchived
+ *    draft from the original array if one exists (forward, then backward).
  */
+
 export async function runManageDraftWithPromptExecutor(): Promise<void> {
   if (!draft) {
     log("[ManageDraftWithPromptExecutor] No loaded draft found!");
@@ -79,6 +77,17 @@ export async function runManageDraftWithPromptExecutor(): Promise<void> {
   log(
     `[ManageDraftWithPromptExecutor] Acting on draft: "${draft.title}" (uuid: ${draft.uuid})`
   );
+
+  // 1) Capture the workspace array and find the current index BEFORE modifications
+  const workspaceDrafts = app.currentWorkspace.query("all");
+  const currentIndex = workspaceDrafts.findIndex(
+    (dr) => dr.uuid === draft.uuid
+  );
+  if (currentIndex === -1) {
+    log(
+      "[ManageDraftWithPromptExecutor] Current draft not found in workspace 'all' query. Possibly filtered out?"
+    );
+  }
 
   const p = new Prompt();
   p.title = "Manage Draft";
@@ -204,9 +213,9 @@ export async function runManageDraftWithPromptExecutor(): Promise<void> {
     }
   }
 
-  // If we removed the draft from the workspace, load the next one
-  if (removeFromWorkspace) {
-    const nextDraft = findNextDraftInWorkspace(draft);
+  // 2) If we removed the draft from the workspace, attempt to load the next from the original array
+  if (removeFromWorkspace && currentIndex !== -1) {
+    const nextDraft = findNextDraftInWorkspace(workspaceDrafts, currentIndex);
     if (nextDraft) {
       editor.load(nextDraft);
       log(
@@ -223,39 +232,28 @@ export async function runManageDraftWithPromptExecutor(): Promise<void> {
 }
 
 /**
- * findNextDraftInWorkspace(d)
+ * findNextDraftInWorkspace(workspaceDrafts, currentIndex)
  *
- * Given the current draft `d`, search the current workspace array to find
- * the next unarchived/untrashed draft, scanning forward from the current position.
- * If not found, scan backward. Return undefined if none is found.
+ * Using the original array of workspace drafts & the current index,
+ * find the next unarchived/untrashed draft by scanning forward, then backward,
+ * ignoring the current draft's new state. This ensures we can find the next item
+ * even if the current has changed to archived/trashed and disappeared from new queries.
  */
-function findNextDraftInWorkspace(current: Draft): Draft | undefined {
-  const workspaceDrafts = app.currentWorkspace.query("all");
-  // Find index of current draft
-  const currentIndex = workspaceDrafts.findIndex(
-    (dr) => dr.uuid === current.uuid
-  );
-
-  if (currentIndex === -1) {
-    log(
-      "[ManageDraftWithPromptExecutor] Current draft not found in workspace query. Possibly filtered out?"
-    );
-    return;
-  }
-
-  // Try to find the next untrashed/unarchived forward
+function findNextDraftInWorkspace(
+  workspaceDrafts: Draft[],
+  currentIndex: number
+): Draft | undefined {
+  // Scan forward
   for (let i = currentIndex + 1; i < workspaceDrafts.length; i++) {
     if (!workspaceDrafts[i].isArchived && !workspaceDrafts[i].isTrashed) {
       return workspaceDrafts[i];
     }
   }
-
-  // If not found forward, search backward
+  // If not found forward, scan backward
   for (let i = currentIndex - 1; i >= 0; i--) {
     if (!workspaceDrafts[i].isArchived && !workspaceDrafts[i].isTrashed) {
       return workspaceDrafts[i];
     }
   }
-
-  return;
+  return undefined;
 }
