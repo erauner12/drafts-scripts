@@ -107,3 +107,5 @@ export { runMyActionName } from "./Actions/MyActionName";
 
 export { runManageDraftWithPromptExecutor } from "./Actions/ManageDraftWithPromptExecutor";
 
+/** Add the new AiTextToCalendar action */
+export { runAiTextToCalendar } from "./Actions/AiTextToCalendar";

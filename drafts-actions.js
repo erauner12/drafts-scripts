@@ -1889,18 +1889,6 @@ function runManageDraftWithPromptExecutor() {
       log(queued ? "Queued MyActionName." : "Failed to queue MyActionName.", !queued);
       break;
     }
-    case "Queue: BatchProcessAction": {
-      const data = { draftAction: "BatchProcessAction" };
-      draft.setTemplateTag("ExecutorData", JSON.stringify(data));
-      const ex = Action.find("Drafts Action Executor");
-      if (!ex) {
-        showAlert("No Executor", "Can't find 'Drafts Action Executor'.");
-        break;
-      }
-      const queued = app.queueAction(ex, draft);
-      log(queued ? "Queued BatchProcessAction." : "Failed to queue BatchProcessAction.", !queued);
-      break;
-    }
   }
   if (removeDraft && currentIndex !== -1) {
     const next = findNextDraft(workspaceDrafts, currentIndex);
@@ -1919,4 +1907,75 @@ function findNextDraft(list, idx) {
   if (idx - 1 >= 0)
     return list[idx - 1];
   return;
+}
+// src/Actions/AiTextToCalendar.ts
+async function runAiTextToCalendar() {
+  try {
+    const selectedText = editor.getSelectedText()?.trim();
+    const userText = selectedText && selectedText.length > 0 ? selectedText : draft.content.trim();
+    if (!userText) {
+      showAlert("No Text", "Draft has no content or selection to parse.");
+      return;
+    }
+    log(`[AiTextToCalendar] Starting extraction with userText:
+` + userText);
+    const systemMessage = `Extract schedule information from the text provided by the user.
+The output should be in the following JSON format.
+
+{
+  "title": "string",         // Event title
+  "start_date": "YYYYMMDD",  // Start date
+  "start_time": "hhmmss",    // Start time
+  "end_date": "YYYYMMDD",    // End date
+  "end_time": "hhmmss",      // End time
+  "details": "string",       // Summary in up to 3 concise sentences. URLs should be preserved.
+  "location": "string"       // Event location
+}
+
+Note:
+* Output in English
+* Do not include any content other than the JSON format in the output
+* If the organizer's name is known, include it in the title
+* Ensure the location is easily identifiable
+* If the end date/time are unknown, set them 2 hours after the start date/time
+`;
+    const ai = OpenAI.create();
+    ai.model = "gpt-3.5-turbo";
+    const fullPrompt = `${systemMessage}
+
+${userText}`;
+    log("[AiTextToCalendar] Sending prompt to OpenAI. This may take a few seconds...");
+    const aiResponse = ai.quickChatResponse(fullPrompt, {
+      temperature: 0.2,
+      max_tokens: 256
+    });
+    log(`[AiTextToCalendar] Received raw response:
+` + aiResponse);
+    let calendarEvent;
+    try {
+      calendarEvent = JSON.parse(aiResponse);
+    } catch (err) {
+      showAlert("Parsing Error", `Unable to parse AI response as valid JSON.
+
+` + String(err));
+      return;
+    }
+    const calendarUrl = toGoogleCalendarURL(calendarEvent);
+    copyToClipboard(calendarUrl);
+    app.openURL(calendarUrl);
+    showAlert("Extracted!", "Calendar link opened & copied to clipboard.");
+  } catch (error) {
+    const errMsg = String(error);
+    log(`[AiTextToCalendar] Failure:
+` + errMsg, true);
+    showAlert("Cannot transform text", errMsg);
+  }
+}
+function toGoogleCalendarURL(event) {
+  const textParam = encodeURIComponent(event.title);
+  const datesParam = `${event.start_date}T${event.start_time}/${event.end_date}T${event.end_time}`;
+  const detailsParam = encodeURIComponent(event.details);
+  const locationParam = encodeURIComponent(event.location);
+  const url = `https://calendar.google.com/calendar/render` + `?action=TEMPLATE` + `&text=${textParam}` + `&dates=${datesParam}` + `&details=${detailsParam}` + `&location=${locationParam}` + `&trp=false`;
+  return url;
 }
