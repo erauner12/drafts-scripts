@@ -4,13 +4,13 @@ import {
   getSelectionEndIndex,
   getTextAfter,
   getTextBefore,
-} from "./helpers-get-text";
+} from "./helpers/helpers-get-text";
 
 import {
   setCursorPosition,
   setSelectedText,
   setSelectionStartEnd,
-} from "./helpers-set-text";
+} from "./helpers/helpers-set-text";
 
 /**
  * Provides methods to add or remove syntax highlighting from selected text in Markdown format.

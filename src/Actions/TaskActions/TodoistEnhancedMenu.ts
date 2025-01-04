@@ -1,4 +1,4 @@
-import { getTodoistCredential, log, showAlert } from "../../helpers-utils";
+import { getTodoistCredential, log } from "../../helpers/helpers-utils";
 import {
   handleDeadlineTasks,
   handleNoDurationTasks,

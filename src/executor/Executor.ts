@@ -1,4 +1,4 @@
-import { log, showAlert } from "../helpers-utils";
+import { log, showAlert } from "../helpers/helpers-utils";
 
 /**
  * Executor: Central place for ephemeral JSON logic or
@@ -243,7 +243,6 @@ export function queueJsonAction(
     log("[Executor] Successfully queued ephemeral JSON via queueJsonAction().");
     if (!skipTrashing) {
       // We'll rely on runDraftsActionExecutor to do the final trash
-      // or we can trash it immediately here if desired
     }
   }
 }

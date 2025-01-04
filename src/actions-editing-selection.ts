@@ -3,10 +3,10 @@ import {
   getDraftLength,
   getNextOccurrenceIndex,
   getPreviousOccurrenceIndex,
-} from "./helpers-get-text";
+} from "./helpers/helpers-get-text";
 
-import { setSelectionRange, trimSelectedText } from "./helpers-set-text";
-import { copySelectedTextToClipboard } from "./helpers-utils";
+import { setSelectionRange, trimSelectedText } from "./helpers/helpers-set-text";
+import { copySelectedTextToClipboard } from "./helpers/helpers-utils";
 
 /**
  * Selects a section of text in the draft based on the provided separator.

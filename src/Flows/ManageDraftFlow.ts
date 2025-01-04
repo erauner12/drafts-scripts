@@ -1,5 +1,5 @@
-import { queueJsonAction } from "../Actions/Executor";
-import { log } from "../helpers-utils";
+import { queueJsonAction } from "../executor/Executor";
+import { log } from "../helpers/helpers-utils";
 
 declare const script: Script;
 

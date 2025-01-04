@@ -10,7 +10,7 @@ import {
   createRange,
   getRandomInt,
 } from "../utils/MyPlainJsUtils.js";
-import { log } from "./helpers-utils";
+import { log } from "./helpers/helpers-utils";
 
 // A sample function to demonstrate usage in Drafts or other TS code
 export function runPlainJsExample() {

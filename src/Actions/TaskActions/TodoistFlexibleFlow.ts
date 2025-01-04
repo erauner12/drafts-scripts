@@ -16,7 +16,7 @@
  * to gather tasks from Todoist, or rely on the categories offered by runTodoistEnhancedMenu.
  */
 
-import { getTodoistCredential, log } from "../../helpers-utils";
+import { getTodoistCredential, log } from "../../helpers/helpers-utils";
 import { assignDurationToTask, moveToFuture, updateToToday } from "./TaskMenus";
 
 declare function alert(message: string): void;

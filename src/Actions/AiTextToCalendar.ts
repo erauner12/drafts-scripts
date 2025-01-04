@@ -1,4 +1,4 @@
-import { copyToClipboard, log, showAlert } from "../helpers-utils";
+import { copyToClipboard, log, showAlert } from "../helpers/helpers-utils";
 
 /**
  * We define a TypeScript interface to mirror the desired JSON output from OpenAI.

@@ -3,9 +3,9 @@ import {
   getNextOccurrenceIndex,
   getPreviousOccurrenceIndex,
   getSelectionStartIndex,
-} from "./helpers-get-text";
+} from "./helpers/helpers-get-text";
 
-import { setCursorPosition, setSelectionRange } from "./helpers-set-text";
+import { setCursorPosition, setSelectionRange } from "./helpers/helpers-set-text";
 
 /**
  * Moves the cursor one character to the left, if it is not at the beginning of the document.

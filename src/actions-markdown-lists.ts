@@ -2,9 +2,9 @@ import {
   getCurrentLineEndIndex,
   getCurrentLineStartIndex,
   getTextFromStartEnd,
-} from "./helpers-get-text";
+} from "./helpers/helpers-get-text";
 
-import { insertTextAndSetCursor } from "./helpers-set-text";
+import { insertTextAndSetCursor } from "./helpers/helpers-set-text";
 
 const getIndentation = (lineText: string): string => {
   const indentationRegex = /^(\s*)/;

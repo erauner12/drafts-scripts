@@ -2,8 +2,8 @@ import {
   removeExtraWhitespace,
   trimWhitespace,
 } from "./actions-transform-case";
-import { getSelectedText } from "./helpers-get-text";
-import { print, transformAndReplaceSelectedText } from "./helpers-set-text";
+import { getSelectedText } from "./helpers/helpers-get-text";
+import { print, transformAndReplaceSelectedText } from "./helpers/helpers-set-text";
 
 class MathEvaluator {
   public trimmedText: string;

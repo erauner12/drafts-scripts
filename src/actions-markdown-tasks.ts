@@ -3,13 +3,13 @@ import {
   getSelectionOrCurrentLineLength,
   getSelectionOrCurrentLineStartIndex,
   getTextfromRange,
-} from "./helpers-get-text";
+} from "./helpers/helpers-get-text";
 
 import {
   setCursorPosition,
   setSelectedText,
   setSelectionRange,
-} from "./helpers-set-text";
+} from "./helpers/helpers-set-text";
 
 /**
  * Class responsible for toggling markdown task and checkbox states within a text selection.

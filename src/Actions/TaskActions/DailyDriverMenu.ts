@@ -20,7 +20,7 @@
  *   3. Repeat as necessary to keep your day up to date.
  */
 
-import { getTodoistCredential, log, showAlert } from "../../helpers-utils";
+import { getTodoistCredential, log, showAlert } from "../../helpers/helpers-utils";
 
 declare var script: { complete(): void };
 declare var draft: {
@@ -325,4 +325,3 @@ async function completeAllOverdueTasks(todoist: Todoist): Promise<void> {
 
   showAlert("Overdue Tasks Completed", "All overdue tasks have been closed.");
 }
-

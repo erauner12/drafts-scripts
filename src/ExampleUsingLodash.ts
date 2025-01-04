@@ -2,7 +2,7 @@ import _ from "lodash";
 // The import above uses the official types for lodash installed via "npm install --save lodash @types/lodash"
 
 import { greet, Person } from "../custom-libs/MyCoolLib";
-import { log } from "./helpers-utils";
+import { log } from "./helpers/helpers-utils";
 // Using ES modules import syntax
 
 // Example usage of lodash:

@@ -33,7 +33,7 @@ export const copySelectedTextToClipboard = (): void => {
  */
 export const isUrl = (s: string): boolean => {
   const urlRegex =
-    /(ftp|http|https):\/\/(\w+:{0,1}\w*@)?(\S+)(:[0-9]+)?(\/|\/([\w#!:.?+=&%@!\-\/]))?/;
+    /(ftp|http|https):\/\/(\w+:{0,1}\w*@)?(\S+)(:[0-9]+)?(\/|\/([\w#!:.?+=&%@!\-\/]))?/
   return urlRegex.test(s);
 };
 
@@ -76,4 +76,3 @@ export function getTodoistCredential(): Todoist {
   todoist.token = credential.getValue("token");
   return todoist;
 }
-

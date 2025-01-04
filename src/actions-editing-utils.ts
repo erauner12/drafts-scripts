@@ -1,12 +1,12 @@
-import { getSelectedRange, getSelectionStartIndex } from "./helpers-get-text";
+import { getSelectedRange, getSelectionStartIndex } from "./helpers/helpers-get-text";
 
 import {
   insertTextAndSetCursor,
   setCursorPosition,
   setTextinRange,
-} from "./helpers-set-text";
+} from "./helpers/helpers-set-text";
 
-import { getClipboard } from "./helpers-utils";
+import { getClipboard } from "./helpers/helpers-utils";
 
 /**
  * Inserts the text obtained from the dictation feature at the current selection or cursor position.

@@ -1,6 +1,6 @@
-import { getSelectedRange, getSelectedText } from "./helpers-get-text";
-import { setCursorPosition, setSelectedText } from "./helpers-set-text";
-import { getUrlFromClipboard } from "./helpers-utils";
+import { getSelectedRange, getSelectedText } from "./helpers/helpers-get-text";
+import { setCursorPosition, setSelectedText } from "./helpers/helpers-set-text";
+import { getUrlFromClipboard } from "./helpers/helpers-utils";
 
 class MarkdownLink {
   constructor(

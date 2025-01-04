@@ -101,11 +101,14 @@ export { runDailyDriverMenu } from "./Actions/TaskActions/DailyDriverMenu";
 
 // Executor for JSON-based ephemeral drafts
 export { runBatchProcessAction } from "./Actions/BatchProcessAction";
-export * from "./Actions/Executor";
 export { runMyActionName } from "./Actions/MyActionName";
 
-
 export { runManageDraftWithPromptExecutor } from "./Actions/ManageDraftWithPromptExecutor";
+
+export {
+  parseEphemeralJson,
+  runDraftsActionExecutor,
+} from "./executor/Executor";
 
 /** Add the new AiTextToCalendar action */
 export { runAiTextToCalendar } from "./Actions/AiTextToCalendar";

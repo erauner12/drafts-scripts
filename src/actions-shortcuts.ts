@@ -1,4 +1,4 @@
-import { copyToClipboard } from "./helpers-utils";
+import { copyToClipboard } from "./helpers/helpers-utils";
 
 export const copyAllTagsToClipboard = (): void => {
   // NOTE: Keep comment for example of syntax

@@ -47,7 +47,6 @@ export const getSelectionStartIndex = (): number => {
  * @returns {number} The index of the cursor's position.
  */
 export const getCursorPosition = (): number => {
-  // cursor position coincides with selection start index if there is no selection
   return getSelectionStartIndex();
 };
 
@@ -66,7 +65,7 @@ export const getSelectionLength = (): number => {
  */
 export const isLastLine = (text: string): boolean => {
   // only last line in draft does not end with newline
-  return !text.endsWith("\n");
+  return !text.endsWith("\\n");
 };
 
 /**
@@ -89,47 +88,39 @@ export const getSelectionEndIndex = (
   selectionStartIndex?: number,
   selectionLength?: number
 ): number => {
-  // check which inputs are provided
   if (selectionStartIndex === undefined || selectionLength === undefined) {
     [selectionStartIndex, selectionLength] = getSelectedRange();
   }
   const selectionEndIndex = selectionStartIndex + selectionLength;
 
-  // case 1: selection spans until end of draft -> set cursor to end of draft
   if (isEndOfDraft(selectionEndIndex)) {
     return selectionEndIndex;
   }
 
-  // case 2: selection is only followed by empty lines -> set cursor to end of last
-  // nonempty line
   const textAfterSelection = getTextAfter(selectionEndIndex);
 
-  // check if text after selection consists of whitespace only
   if (textAfterSelection.trim() === "") {
     const selectedText = getTextfromRange(selectionStartIndex, selectionLength);
     const trimmedSelectedText = selectedText.trim();
     return selectionStartIndex + trimmedSelectedText.length;
   }
 
-  // case 3: selection is followed by nonempty lines -> set cursor to original selection
-  // end
   return selectionEndIndex;
 };
+
 /**
  * Retrieves the range of the current line, taking into consideration whether it's the last line.
  * @returns {[number, number]} A tuple with the start index and length of the current line.
  */
 export const getCurrentLineRange = (): [number, number] => {
-  const [currentLineStartIndex, currentLineLength] =
-    // @ts-ignore
-    editor.getSelectedLineRange();
+  // @ts-ignore
+  const [currentLineStartIndex, currentLineLength] = editor.getSelectedLineRange();
 
   const currentLineText = getTextfromRange(
     currentLineStartIndex,
     currentLineLength
   );
 
-  // Adjust the line length if it's not the last line (to exclude the newline character)
   if (isLastLine(currentLineText)) {
     return [currentLineStartIndex, currentLineLength];
   }

@@ -11,7 +11,7 @@
  */
 
 import * as MyLegacyLib from "../custom-libs/MyLegacyLib";
-import { log } from "./helpers-utils";
+import { log } from "./helpers/helpers-utils";
 
 /**
  * exampleUsingMyLegacyLib

@@ -169,8 +169,8 @@ export const transformAndReplaceSelectedText = (
  * @param {...(string | number)[]} inputs - A list of inputs to print for debugging.
  */
 export const print = (...inputs: (string | number)[]): void => {
-  const debugPrefix = "\n---\nDebugging Output:\n";
-  const joinedInputs = inputs.join("\n");
+  const debugPrefix = "\\n---\\nDebugging Output:\\n";
+  const joinedInputs = inputs.join("\\n");
   const debugText = debugPrefix + joinedInputs;
   const draftContent = getDraftContent();
   const output = draftContent + debugText;

@@ -1,4 +1,4 @@
-import { transformAndReplaceSelectedText } from "./helpers-set-text";
+import { transformAndReplaceSelectedText } from "./helpers/helpers-set-text";
 
 // do not use as separate action since it takes an input parameter, use
 // `trimWhitespace()` instead
@@ -160,7 +160,7 @@ export const sortLines = (): void => {
   transformAndReplaceSelectedText((selectedText: string): string => {
     return selectedText
       .split("\n")
-      .sort((a, b) => a.localeCompare(b))
+      .sort((a: string, b: string) => a.localeCompare(b))
       .join("\n");
   });
 };

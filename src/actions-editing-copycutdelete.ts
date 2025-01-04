@@ -7,16 +7,16 @@ import {
   getSelectionOrCurrentLineRange,
   getTextfromRange,
   isLastLine,
-} from "./helpers-get-text";
+} from "./helpers/helpers-get-text";
 
 import {
   setCursorPosition,
   setSelectedText,
   setSelectionRangeKeepNewline,
   setTextinRange,
-} from "./helpers-set-text";
+} from "./helpers/helpers-set-text";
 
-import { copyToClipboard } from "./helpers-utils";
+import { copyToClipboard } from "./helpers/helpers-utils";
 
 /**
  * Handles copying, cutting, and deleting of lines within the Drafts app.

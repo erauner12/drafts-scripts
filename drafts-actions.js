@@ -5561,7 +5561,7 @@ __p += '`;
   }).call(exports);
 });
 
-// src/helpers-get-text.ts
+// src/helpers/helpers-get-text.ts
 var getDraftLength = () => {
   return draft.content.length;
 };
@@ -5578,8 +5578,7 @@ var getCursorPosition = () => {
   return getSelectionStartIndex();
 };
 var isLastLine = (text) => {
-  return !text.endsWith(`
-`);
+  return !text.endsWith("\\n");
 };
 var isEndOfDraft = (positionIndex) => {
   return positionIndex === getDraftLength();
@@ -5665,7 +5664,7 @@ var getNextOccurrenceIndex = (char, cursorPosition) => {
   return nextOccurrenceIndex === -1 ? getDraftLength() : nextOccurrenceIndex;
 };
 
-// src/helpers-set-text.ts
+// src/helpers/helpers-set-text.ts
 var setSelectedText = (text) => {
   editor.setSelectedText(text);
 };
@@ -5709,7 +5708,7 @@ var transformAndReplaceSelectedText = (transformationFunction) => {
   setSelectedText(transformedText);
 };
 
-// src/helpers-utils.ts
+// src/helpers/helpers-utils.ts
 var getClipboard = () => {
   return app.getClipboard();
 };
@@ -5734,7 +5733,7 @@ function log(message, critical = false) {
     alert(message);
   }
 }
-function showAlert(title, message) {
+function showAlert2(title, message) {
   alert(`${title}
 
 ${message}`);
@@ -6522,7 +6521,7 @@ async function assignDurationToTask(todoist, task) {
             }
           } else {
             log(`Invalid custom duration format: "${customDurationInput}"`, true);
-            showAlert("Invalid Duration", "Please enter the duration like '45 minutes' or '2 hours'.");
+            showAlert2("Invalid Duration", "Please enter the duration like '45 minutes' or '2 hours'.");
             return false;
           }
         }
@@ -6807,7 +6806,7 @@ async function handleOverdueTasksIndividually(todoist) {
   log("Fetching overdue tasks for today...");
   const overdueTasks = await todoist.getTasks({ filter: "overdue | today" });
   if (!overdueTasks || overdueTasks.length === 0) {
-    showAlert("No Overdue Tasks", "You have no overdue tasks for today.");
+    showAlert2("No Overdue Tasks", "You have no overdue tasks for today.");
     return;
   }
   for (const task of overdueTasks) {
@@ -6881,7 +6880,7 @@ async function shiftAllTodayTasksBy(todoist) {
   log("Fetching tasks for today to shift them...");
   const todayTasks = await todoist.getTasks({ filter: "due: today" });
   if (!todayTasks || todayTasks.length === 0) {
-    showAlert("No Today Tasks", "You have no tasks scheduled for today.");
+    showAlert2("No Today Tasks", "You have no tasks scheduled for today.");
     return;
   }
   const p = new Prompt;
@@ -6915,7 +6914,7 @@ async function shiftAllTodayTasksBy(todoist) {
         log("User canceled custom shift.");
         return;
       }
-      showAlert("Not Implemented", "Custom input for shifting is not yet implemented in this example.");
+      showAlert2("Not Implemented", "Custom input for shifting is not yet implemented in this example.");
       return;
     }
   }
@@ -6939,13 +6938,13 @@ async function shiftAllTodayTasksBy(todoist) {
       }
     }
   }
-  showAlert("Tasks Shifted", `All tasks for today have been shifted by ${shiftMinutes} minutes.`);
+  showAlert2("Tasks Shifted", `All tasks for today have been shifted by ${shiftMinutes} minutes.`);
 }
 async function completeAllOverdueTasks(todoist) {
   log("Fetching overdue tasks to mark complete...");
   const overdueTasks = await todoist.getTasks({ filter: "overdue" });
   if (!overdueTasks || overdueTasks.length === 0) {
-    showAlert("No Overdue Tasks", "You have no overdue tasks to complete.");
+    showAlert2("No Overdue Tasks", "You have no overdue tasks to complete.");
     return;
   }
   for (const task of overdueTasks) {
@@ -6960,7 +6959,7 @@ async function completeAllOverdueTasks(todoist) {
       log(`Error completing overdue task: ${String(err)}`, true);
     }
   }
-  showAlert("Overdue Tasks Completed", "All overdue tasks have been closed.");
+  showAlert2("Overdue Tasks Completed", "All overdue tasks have been closed.");
 }
 // src/Actions/BatchProcessAction.ts
 function runBatchProcessAction() {
@@ -6998,7 +6997,7 @@ function runBatchProcessAction() {
   }
   if (!ephemeralHasDraftAction) {
     log("[BatchProcessAction] No ephemeral or fallback JSON with draftAction. We may just show an alert or skip.");
-    showAlert("BatchProcessAction", "No 'draftAction' found in ephemeral JSON or ExecutorData. Nothing to process.");
+    showAlert2("BatchProcessAction", "No 'draftAction' found in ephemeral JSON or ExecutorData. Nothing to process.");
     return;
   }
   let params = ephemeralJson.params || {};
@@ -7015,7 +7014,7 @@ function runBatchProcessAction() {
     const executor = Action.find("Drafts Action Executor");
     if (!executor) {
       log("[BatchProcessAction] Could not find 'Drafts Action Executor'", true);
-      showAlert("Error", "Couldn't find Drafts Action Executor to continue.");
+      showAlert2("Error", "Couldn't find Drafts Action Executor to continue.");
       return;
     }
     let success = app.queueAction(executor, draft);
@@ -7027,11 +7026,73 @@ function runBatchProcessAction() {
     return;
   }
   log("[BatchProcessAction] No tasks provided, so finishing. You can implement custom logic here.");
-  showAlert("BatchProcessAction Complete", "Nothing to process or queued next step successfully.");
+  showAlert2("BatchProcessAction Complete", "Nothing to process or queued next step successfully.");
   draft.addTag("status::batch-processed");
   draft.update();
 }
-// src/Actions/Executor.ts
+// src/Actions/MyActionName.ts
+function runMyActionName() {
+  const draftDataRaw = draft.getTemplateTag("DraftData") || "";
+  const customParamsRaw = draft.getTemplateTag("CustomParams") || "";
+  let draftData = {};
+  let customParams = {};
+  try {
+    if (draftDataRaw) {
+      draftData = JSON.parse(draftDataRaw);
+    }
+    if (customParamsRaw) {
+      customParams = JSON.parse(customParamsRaw);
+    }
+  } catch (error) {
+    log("Error parsing template tags: " + String(error), true);
+  }
+  log("=== [MyActionName] runMyActionName() invoked ===");
+  log("DraftData (parsed): " + JSON.stringify(draftData));
+  log("CustomParams (parsed): " + JSON.stringify(customParams));
+  if ((!draftData || Object.keys(draftData).length === 0) && (!customParams || Object.keys(customParams).length === 0)) {
+    log("[MyActionName] No ephemeral JSON data found. Processing loaded draft directly...");
+    const loadedContent = draft.content;
+    log(`[MyActionName] Loaded draft content:
+` + loadedContent);
+    log("[MyActionName] Draft metadata:");
+    log(" • UUID: " + draft.uuid);
+    log(" • Title: " + draft.title);
+    log(" • isTrashed: " + draft.isTrashed);
+    log(" • isArchived: " + draft.isArchived);
+    log(" • isFlagged: " + draft.isFlagged);
+    log(" • Current Tags: " + draft.tags.join(", "));
+    if (!draft.hasTag("status::processed")) {
+      draft.addTag("status::processed");
+      draft.update();
+      log("[MyActionName] Added scoped tag 'status::processed' to the loaded draft.");
+      const afterJson = draft.toJSON();
+      log(`[MyActionName] Post-update draft.toJSON():
+` + JSON.stringify(afterJson, null, 2));
+      editor.load(draft);
+      log("[MyActionName] Reloaded this draft in the editor to reflect updated tags.");
+    }
+    let draftSummary = `
+UUID: ${draft.uuid}
+Title: ${draft.title}
+Tags: ${draft.tags.join(", ")}
+isFlagged: ${draft.isFlagged}
+isTrashed: ${draft.isTrashed}
+isArchived: ${draft.isArchived}
+
+Content:
+${draft.content}
+    `;
+    showAlert2("[MyActionName] No ephemeral JSON data", `We processed the loaded draft:
+` + draftSummary);
+  }
+  const summary = `DraftData:
+` + JSON.stringify(draftData, null, 2) + `
+
+CustomParams:
+` + JSON.stringify(customParams, null, 2);
+  showAlert2("MyActionName Summary", summary);
+}
+// src/executor/Executor.ts
 function parseEphemeralJson() {
   let jsonData = {};
   let usedEphemeral = false;
@@ -7094,7 +7155,7 @@ async function runDraftsActionExecutor() {
       log("[Executor] User selected fallback action: " + chosenActionName);
       const fallbackAction = Action.find(chosenActionName);
       if (!fallbackAction) {
-        showAlert("Action Not Found", `Could not find an action named: "${chosenActionName}"`);
+        showAlert2("Action Not Found", `Could not find an action named: "${chosenActionName}"`);
         return;
       }
       const success2 = app.queueAction(fallbackAction, draft);
@@ -7110,7 +7171,7 @@ async function runDraftsActionExecutor() {
     const actionName = jsonData.draftAction;
     log("[Executor] actionName: " + (actionName || "undefined"));
     if (!actionName) {
-      showAlert("No Action Provided", "Please provide 'draftAction' in the JSON.");
+      showAlert2("No Action Provided", "Please provide 'draftAction' in the JSON.");
       return;
     }
     let realDraft = null;
@@ -7139,7 +7200,7 @@ async function runDraftsActionExecutor() {
     }
     const actionToQueue = Action.find(actionName);
     if (!actionToQueue) {
-      showAlert("Action Not Found", `Could not find an action named: "${actionName}"`);
+      showAlert2("Action Not Found", `Could not find an action named: "${actionName}"`);
       return;
     }
     log("[Executor] Queuing action: " + actionName + " on draft: " + draftForAction.uuid);
@@ -7168,7 +7229,7 @@ function queueJsonAction(jsonData, skipTrashing = false) {
 ${ephemeralContent}`);
   const executorAction = Action.find("Drafts Action Executor");
   if (!executorAction) {
-    showAlert("Executor Not Found", "Unable to locate 'Drafts Action Executor'.");
+    showAlert2("Executor Not Found", "Unable to locate 'Drafts Action Executor'.");
     return;
   }
   const success = app.queueAction(executorAction, draft);
@@ -7180,68 +7241,7 @@ ${ephemeralContent}`);
     }
   }
 }
-// src/Actions/MyActionName.ts
-function runMyActionName() {
-  const draftDataRaw = draft.getTemplateTag("DraftData") || "";
-  const customParamsRaw = draft.getTemplateTag("CustomParams") || "";
-  let draftData = {};
-  let customParams = {};
-  try {
-    if (draftDataRaw) {
-      draftData = JSON.parse(draftDataRaw);
-    }
-    if (customParamsRaw) {
-      customParams = JSON.parse(customParamsRaw);
-    }
-  } catch (error) {
-    log("Error parsing template tags: " + String(error), true);
-  }
-  log("=== [MyActionName] runMyActionName() invoked ===");
-  log("DraftData (parsed): " + JSON.stringify(draftData));
-  log("CustomParams (parsed): " + JSON.stringify(customParams));
-  if ((!draftData || Object.keys(draftData).length === 0) && (!customParams || Object.keys(customParams).length === 0)) {
-    log("[MyActionName] No ephemeral JSON data found. Processing loaded draft directly...");
-    const loadedContent = draft.content;
-    log(`[MyActionName] Loaded draft content:
-` + loadedContent);
-    log("[MyActionName] Draft metadata:");
-    log(" • UUID: " + draft.uuid);
-    log(" • Title: " + draft.title);
-    log(" • isTrashed: " + draft.isTrashed);
-    log(" • isArchived: " + draft.isArchived);
-    log(" • isFlagged: " + draft.isFlagged);
-    log(" • Current Tags: " + draft.tags.join(", "));
-    if (!draft.hasTag("status::processed")) {
-      draft.addTag("status::processed");
-      draft.update();
-      log("[MyActionName] Added scoped tag 'status::processed' to the loaded draft.");
-      const afterJson = draft.toJSON();
-      log(`[MyActionName] Post-update draft.toJSON():
-` + JSON.stringify(afterJson, null, 2));
-      editor.load(draft);
-      log("[MyActionName] Reloaded this draft in the editor to reflect updated tags.");
-    }
-    let draftSummary = `
-UUID: ${draft.uuid}
-Title: ${draft.title}
-Tags: ${draft.tags.join(", ")}
-isFlagged: ${draft.isFlagged}
-isTrashed: ${draft.isTrashed}
-isArchived: ${draft.isArchived}
 
-Content:
-${draft.content}
-    `;
-    showAlert("[MyActionName] No ephemeral JSON data", `We processed the loaded draft:
-` + draftSummary);
-  }
-  const summary = `DraftData:
-` + JSON.stringify(draftData, null, 2) + `
-
-CustomParams:
-` + JSON.stringify(customParams, null, 2);
-  showAlert("MyActionName Summary", summary);
-}
 // src/Flows/ManageDraftFlow.ts
 function runManageDraftFlow() {
   if (!draft) {
@@ -7303,7 +7303,7 @@ async function runAiTextToCalendar() {
     const selectedText = editor.getSelectedText()?.trim();
     const userText = selectedText && selectedText.length > 0 ? selectedText : draft.content.trim();
     if (!userText) {
-      showAlert("No Text", "Draft has no content or selection to parse.");
+      showAlert2("No Text", "Draft has no content or selection to parse.");
       return;
     }
     log(`[AiTextToCalendar] Starting extraction with userText:
@@ -7344,7 +7344,7 @@ ${userText}`;
     try {
       calendarEvent = JSON.parse(aiResponse);
     } catch (err) {
-      showAlert("Parsing Error", `Unable to parse AI response as valid JSON.
+      showAlert2("Parsing Error", `Unable to parse AI response as valid JSON.
 
 ` + String(err));
       return;
@@ -7352,12 +7352,12 @@ ${userText}`;
     const calendarUrl = toGoogleCalendarURL(calendarEvent);
     copyToClipboard(calendarUrl);
     app.openURL(calendarUrl);
-    showAlert("Extracted!", "Calendar link opened & copied to clipboard.");
+    showAlert2("Extracted!", "Calendar link opened & copied to clipboard.");
   } catch (error) {
     const errMsg = String(error);
     log(`[AiTextToCalendar] Failure:
 ` + errMsg, true);
-    showAlert("Cannot transform text", errMsg);
+    showAlert2("Cannot transform text", errMsg);
   }
 }
 function toGoogleCalendarURL(event) {

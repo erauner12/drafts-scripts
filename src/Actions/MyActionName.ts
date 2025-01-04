@@ -42,7 +42,7 @@
  * approach in the repository’s documentation.
  */
 
-import { log, showAlert } from "../helpers-utils";
+import { log, showAlert } from "../helpers/helpers-utils";
 
 /**
  * Example action that can run from ephemeral JSON, fallback JSON, or on the loaded draft.
