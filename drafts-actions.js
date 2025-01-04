@@ -1798,135 +1798,60 @@ CustomParams:
 ` + JSON.stringify(customParams, null, 2);
   showAlert("MyActionName Summary", summary);
 }
-// src/Actions/ManageDraftWithPromptExecutor.ts
-function runManageDraftWithPromptExecutor() {
+// src/Flows/ManageDraftFlow.ts
+function runManageDraftFlow() {
   if (!draft) {
     log("No loaded draft!");
     script.complete();
     return;
   }
-  const ws = app.currentWorkspace;
-  const folder = ws.loadFolder ?? "all";
-  log(`Workspace folder from app.currentWorkspace: ${folder}`);
-  const workspaceDrafts = ws.query(folder);
-  const currentIndex = workspaceDrafts.findIndex((dr) => dr.uuid === draft.uuid);
+  const folder = app.currentWorkspace.loadFolder ?? "all";
+  log("Workspace folder: " + folder);
   const p = new Prompt;
-  p.title = "Manage Draft";
+  p.title = "Manage Draft Flow";
   p.message = `Folder: ${folder} || Draft: "${draft.title}"
 (${draft.uuid})`;
-  if (folder === "archive") {
-    if (draft.isArchived)
-      p.addButton("Move to Inbox");
-    p.addButton("Trash");
-    if (draft.isFlagged)
-      p.addButton("Unflag");
-    else
-      p.addButton("Flag");
-  } else if (folder === "flagged") {
-    if (draft.isFlagged)
-      p.addButton("Unflag");
-    if (!draft.isArchived)
-      p.addButton("Archive");
-    if (!draft.isTrashed)
-      p.addButton("Trash");
-  } else if (folder === "trash") {
-    if (draft.isTrashed)
-      p.addButton("Move to Inbox");
-  } else if (folder === "inbox") {
-    if (!draft.isArchived)
-      p.addButton("Archive");
-    if (!draft.isTrashed)
-      p.addButton("Trash");
-    if (draft.isFlagged)
-      p.addButton("Unflag");
-    else
-      p.addButton("Flag");
-  } else {
-    if (!draft.isArchived)
-      p.addButton("Archive");
-    if (!draft.isTrashed)
-      p.addButton("Trash");
-    if (draft.isFlagged)
-      p.addButton("Unflag");
-    else
-      p.addButton("Flag");
-  }
+  p.addButton("Trash");
+  p.addButton("Move to Inbox");
+  p.addButton("Archive");
   p.addButton("Queue: MyActionName");
-  p.addButton("Queue: BatchProcessAction");
   p.addButton("Cancel");
   if (!p.show() || p.buttonPressed === "Cancel") {
-    log("User canceled.");
+    log("User canceled ManageDraftFlow.");
     script.complete();
     return;
   }
-  const choice = p.buttonPressed;
-  log(`User chose: ${choice}`);
-  let removeDraft = false;
-  switch (choice) {
-    case "Archive":
-      if (!draft.isArchived) {
-        draft.isArchived = true;
-        draft.update();
-        removeDraft = folder === "inbox" || folder === "flagged" || folder === "all";
-      }
-      break;
-    case "Trash":
+  switch (p.buttonPressed) {
+    case "Trash": {
       if (!draft.isTrashed) {
         draft.isTrashed = true;
         draft.update();
-        removeDraft = folder !== "trash";
       }
       break;
-    case "Move to Inbox":
-      if (draft.isArchived || draft.isTrashed) {
-        draft.isArchived = false;
-        draft.isTrashed = false;
-        draft.update();
-        removeDraft = folder === "archive" || folder === "trash" || folder === "flagged";
-      }
+    }
+    case "Move to Inbox": {
+      draft.isTrashed = false;
+      draft.isArchived = false;
+      draft.update();
       break;
-    case "Flag":
-      if (!draft.isFlagged) {
-        draft.isFlagged = true;
-        draft.update();
-        removeDraft = false;
-      }
+    }
+    case "Archive": {
+      draft.isArchived = true;
+      draft.update();
       break;
-    case "Unflag":
-      if (draft.isFlagged) {
-        draft.isFlagged = false;
-        draft.update();
-        removeDraft = folder === "flagged";
-      }
-      break;
+    }
     case "Queue: MyActionName": {
-      const data = { draftAction: "MyActionName" };
-      queueJsonAction(data);
+      const ephemeralJson = { draftAction: "MyActionName" };
+      queueJsonAction(ephemeralJson);
       break;
-    }
-    case "Queue: BatchProcessAction": {
-      const store = { draftAction: "BatchProcessAction" };
-      queueJsonAction(store);
-      break;
-    }
-  }
-  if (removeDraft && currentIndex !== -1) {
-    const next = findNextDraft(workspaceDrafts, currentIndex);
-    if (next) {
-      editor.load(next);
-      log(`Loaded next: "${next.title}" (uuid: ${next.uuid})`);
-    } else {
-      log("No next draft in array.");
     }
   }
   script.complete();
 }
-function findNextDraft(list, idx) {
-  if (idx + 1 < list.length)
-    return list[idx + 1];
-  if (idx - 1 >= 0)
-    return list[idx - 1];
-  return;
+
+// src/Actions/ManageDraftWithPromptExecutor.ts
+function runManageDraftWithPromptExecutor() {
+  runManageDraftFlow();
 }
 // src/Actions/AiTextToCalendar.ts
 async function runAiTextToCalendar() {
