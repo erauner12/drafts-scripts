@@ -305,7 +305,115 @@ Person says: Hi, I'm Evan
 • If you want a single-file approach, you could merge the definitions & code into one file.  
 • For old-school CommonJS exports, adapt your `.d.ts` accordingly.
 
-## 9. Summary
+## 9. Dealing with "UMD Global vs. Module" in .d.ts
+
+TypeScript can define a library as a **namespace** (typical of older or global-based libraries) *or* an **ES module**. If your `.d.ts` declares `export as namespace MyCoolLib`, TypeScript sees it as something that can be used globally or via `import * as MyCoolLib`.
+
+### Option A) Keep the Namespace
+
+If you want to keep the “namespace + export as namespace” in your `.d.ts`:
+
+**`MyCoolLib.d.ts`**:
+```ts
+declare namespace MyCoolLib {
+  function greet(name: string): void;
+  class Person {
+    constructor(name: string);
+    sayHello(): string;
+  }
+}
+export as namespace MyCoolLib;
+export = MyCoolLib;
+```
+
+Then, your `.ts` usage is typically:
+```ts
+import * as MyCoolLib from "../custom-libs/MyCoolLib";
+import { log } from "./helpers-utils";
+
+export function exampleUsingMyCoolLib() {
+  MyCoolLib.greet("Evan");
+  const me = new MyCoolLib.Person("Evan");
+  log("Person says: " + me.sayHello());
+}
+```
+
+Do not try `import { greet } from "../custom-libs/MyCoolLib"` in that scenario, because the `.d.ts` is describing a single “UMD/namespace” export. If you do so, you’ll see warnings like “MyCoolLib refers to a UMD global, but the current file is a module.”
+
+### Option B) Convert to “Normal ES Module” Declarations
+
+If you prefer standard ES module style—such as:
+```ts
+import { greet, Person } from "../custom-libs/MyCoolLib";
+```
+Then your `.d.ts` should define individual exports, for example:
+
+```ts
+// MyCoolLib.d.ts
+export function greet(name: string): void;
+
+export class Person {
+  constructor(name: string);
+  sayHello(): string;
+}
+```
+
+(No `export as namespace` or `export = MyCoolLib;`.)
+
+And your `.ts` file matches:
+
+```ts
+// MyCoolLib.ts
+export function greet(name: string): void {
+  console.log("Hello, " + name);
+}
+
+export class Person {
+  name: string;
+  constructor(name: string) {
+    this.name = name;
+  }
+  sayHello(): string {
+    return "Hi, I'm " + this.name;
+  }
+}
+```
+
+Now TypeScript sees a normal ES module:
+
+```ts
+import { greet, Person } from "../custom-libs/MyCoolLib";
+greet("Evan");
+const me = new Person("Evan");
+```
+
+No more “UMD global vs. module” clash.
+
+#### Decide Which Style is Best
+- If you have legacy `.d.ts` or a library that’s built as UMD, you might do Option A.  
+- If your code is new and you want conventional ES modules, do Option B.  
+
+Then, your imports become straightforward. Also, remember to keep your `tsconfig.json` pointing to the right directories:
+
+```json
+{
+  "compilerOptions": {
+    "typeRoots": [
+      "./drafts-type-individual",
+      "./custom-libs"
+    ]
+  },
+  "include": [
+    "./drafts-type-individual/*.d.ts",
+    "./custom-libs/*.d.ts",
+    "./src/**/*.ts"
+  ]
+}
+```
+
+## 10. Summary
+
+By choosing Option A (namespace + `import * as MyCoolLib`) or Option B (ES modules + multiple named exports), you’ll eliminate the “UMD global vs. module” warnings and get a consistent TypeScript experience.
 
 You now have a complete pipeline to:
 	•	Install or create external code.
