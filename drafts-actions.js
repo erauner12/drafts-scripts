@@ -1684,7 +1684,7 @@ async function runDraftsActionExecutor() {
     } else {
       log("[DraftActionExecutor] No draftData object found in JSON.");
     }
-    let draftForAction = realDraft || draft;
+    const draftForAction = realDraft || draft;
     if (jsonData.params) {
       log("[DraftActionExecutor] Found params. Storing in template tag 'CustomParams'.");
       draftForAction.setTemplateTag("CustomParams", JSON.stringify(jsonData.params));
@@ -1887,6 +1887,18 @@ function runManageDraftWithPromptExecutor() {
       }
       const queued = app.queueAction(ex, draft);
       log(queued ? "Queued MyActionName." : "Failed to queue MyActionName.", !queued);
+      break;
+    }
+    case "Queue: BatchProcessAction": {
+      const store = { draftAction: "BatchProcessAction" };
+      draft.setTemplateTag("ExecutorData", JSON.stringify(store));
+      const executor2 = Action.find("Drafts Action Executor");
+      if (!executor2) {
+        showAlert("No Executor", "Can't find 'Drafts Action Executor'.");
+        break;
+      }
+      const queued2 = app.queueAction(executor2, draft);
+      log(queued2 ? "Queued BatchProcessAction." : "Failed to queue BatchProcessAction.", !queued2);
       break;
     }
   }

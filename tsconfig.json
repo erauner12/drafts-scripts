@@ -4,9 +4,13 @@
     "target": "ESNext",
     "moduleResolution": "node",
     "lib": ["ESNext", "DOM"],
+
+    // Make sure we point to 'drafts-type-individual' for type definitions
     "typeRoots": [
-      "./drafts-type-individual"
+      "./drafts-type-individual"   // now TS will pick up *.d.ts in that folder
     ],
+
+    // We can still keep these settings from your original file
     "strict": true,
     "downlevelIteration": true,
     "esModuleInterop": true,
@@ -16,6 +20,8 @@
     "useDefineForClassFields": true
   },
   "include": [
+    // The entire 'drafts-type-individual' directory for definitions,
+    // plus your source code
     "./drafts-type-individual/*.d.ts",
     "./src/**/*.ts"
   ]

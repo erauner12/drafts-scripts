@@ -44,13 +44,10 @@
 
 import { log, showAlert } from "../helpers-utils";
 
-// We'll assume "draft" is available globally in Drafts
-declare var draft: {
-  getTemplateTag(key: string): string | null;
-};
-
+/**
+ * Example action that can run from ephemeral JSON, fallback JSON, or on the loaded draft.
+ */
 export function runMyActionName() {
-  // Grab the stored tags set by DraftActionExecutor
   const draftDataRaw = draft.getTemplateTag("DraftData") || "";
   const customParamsRaw = draft.getTemplateTag("CustomParams") || "";
 
@@ -72,7 +69,7 @@ export function runMyActionName() {
   log("DraftData (parsed): " + JSON.stringify(draftData));
   log("CustomParams (parsed): " + JSON.stringify(customParams));
 
-  // If ephemeral data doesn't exist (both empty), let's handle the loaded draft directly
+  // If ephemeral data doesn't exist, fall back to the loaded draft
   if (
     (!draftData || Object.keys(draftData).length === 0) &&
     (!customParams || Object.keys(customParams).length === 0)
@@ -84,6 +81,7 @@ export function runMyActionName() {
     // Log basic info about the loaded draft
     const loadedContent = draft.content;
     log("[MyActionName] Loaded draft content:\n" + loadedContent);
+
     log("[MyActionName] Draft metadata:");
     log(" • UUID: " + draft.uuid);
     log(" • Title: " + draft.title);
@@ -115,7 +113,7 @@ export function runMyActionName() {
       );
     }
 
-    // Show an alert summarizing the changes we made
+    // Summarize for user
     let draftSummary = `
 UUID: ${draft.uuid}
 Title: ${draft.title}
@@ -133,13 +131,12 @@ ${draft.content}
     );
   }
 
-  // For demonstration, let's show an alert summarizing ephemeral data or fallback usage
+  // Show ephemeral summary (if any)
   const summary =
     "DraftData:\n" +
     JSON.stringify(draftData, null, 2) +
     "\n\nCustomParams:\n" +
     JSON.stringify(customParams, null, 2);
-  showAlert("MyActionName Summary", summary);
 
-  // Here you can do something with draftData or customParams as needed.
+  showAlert("MyActionName Summary", summary);
 }

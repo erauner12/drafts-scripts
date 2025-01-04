@@ -1,30 +1,6 @@
 import { log, showAlert } from "../helpers-utils";
 
 /**
- * Interface for the global `draft` object in Drafts.
- * We add the `trash` method and other properties we might need.
- */
-declare var draft: {
-  content: string;
-  uuid: string;
-  isTrashed: boolean;
-  trash(): void;
-  getTemplateTag(tag: string): string | null;
-};
-
-/**
- * Interface for the global `app` object in Drafts.
- * We add queueAction to chain calls to other actions.
- */
-declare var app: {
-  queueAction(action: any, draft: any): boolean;
-};
-
-declare class Action {
-  static find(name: string): any;
-}
-
-/**
  * runDraftsActionExecutor()
  *
  * This script is designed to parse the current draft content as JSON,
@@ -34,17 +10,13 @@ declare class Action {
  * Example usage from outside of Drafts:
  *
  *   drafts://x-callback-url/create?text={"draftAction":"SomeActionName","params":{"key":"value"}}&action=Drafts%20Action%20Executor
- *
- * This will create a new draft containing the JSON above, automatically run this script,
- * and trash the draft after queueing the specified action. The queued action can read
- * from `draft.getTemplateTag("...")` or other structures if desired.
+ * Parses the current draft as JSON, finds a `draftAction` by name, queues that action,
+ * then trashes the ephemeral draft.
  */
 export async function runDraftsActionExecutor(): Promise<void> {
   // If ephemeral draft is already processed, skip
   if (draft.hasTag("status::processed")) {
-    log(
-      "[DraftActionExecutor] Ephemeral draft has 'status::processed'; skipping re-processing."
-    );
+    log("[DraftActionExecutor] Ephemeral draft has 'status::processed'; skipping re-processing.");
     return;
   }
 
@@ -62,15 +34,13 @@ export async function runDraftsActionExecutor(): Promise<void> {
       if (parsed && parsed.draftAction) {
         jsonData = parsed;
         usedEphemeral = true;
-        log(
-          "[Executor] Found ephemeral JSON with action: " + jsonData.draftAction
-        );
+        log("[Executor] Found ephemeral JSON with action: " + jsonData.draftAction);
       }
     } catch {
       log("[Executor] No valid ephemeral JSON found, continuing...");
     }
 
-    // STEP 2: Fallback to template tag if needed
+    // STEP 2: Fallback to ExecutorData if needed
     if (!usedEphemeral) {
       const fallbackData = draft.getTemplateTag("ExecutorData");
       if (fallbackData) {
@@ -84,7 +54,7 @@ export async function runDraftsActionExecutor(): Promise<void> {
       }
     }
 
-    // STEP 3: If still no action, fall back to the currently loaded draft in the editor
+    // STEP 3: If no 'draftAction', prompt user
     if (!jsonData.draftAction) {
       log("[Executor] No 'draftAction' found in ephemeral/fallback JSON.");
 
@@ -128,8 +98,8 @@ export async function runDraftsActionExecutor(): Promise<void> {
 
       // We'll queue that action on the current ephemeral draft (or the editor's loaded draft).
       // If you'd rather run it on a new draft, or load from a workspace, do so here.
-      const success = app.queueAction(fallbackAction, draft);
-      if (!success) {
+      const success2 = app.queueAction(fallbackAction, draft);
+      if (!success2) {
         log(`Failed to queue fallback action "${chosenActionName}".`, true);
       } else {
         log(`Queued fallback action "${chosenActionName}" successfully.`);
@@ -151,13 +121,11 @@ export async function runDraftsActionExecutor(): Promise<void> {
       return;
     }
 
-    // If we have jsonData.draftData, create a new draft:
+    // If we have jsonData.draftData, create a new real draft
     let realDraft: Draft | null = null;
 
     if (jsonData.draftData) {
-      log(
-        "[DraftActionExecutor] Found draftData. Creating a new draft with that data..."
-      );
+      log("[DraftActionExecutor] Found draftData. Creating a new draft with that data...");
       realDraft = Draft.create();
       if (typeof jsonData.draftData.content === "string") {
         realDraft.content = jsonData.draftData.content;
@@ -170,22 +138,17 @@ export async function runDraftsActionExecutor(): Promise<void> {
       }
       realDraft.setTemplateTag("DraftData", JSON.stringify(jsonData.draftData));
       realDraft.update();
-      log(
-        "[DraftActionExecutor] Created a new real draft. UUID = " +
-          realDraft.uuid
-      );
+      log("[DraftActionExecutor] Created a new real draft. UUID = " + realDraft.uuid);
     } else {
       log("[DraftActionExecutor] No draftData object found in JSON.");
     }
 
     // Decide which draft to queue the action on:
-    let draftForAction = realDraft || draft;
+    const draftForAction = realDraft || draft;
 
     // If params exist, store them on draftForAction:
     if (jsonData.params) {
-      log(
-        "[DraftActionExecutor] Found params. Storing in template tag 'CustomParams'."
-      );
+      log("[DraftActionExecutor] Found params. Storing in template tag 'CustomParams'.");
       draftForAction.setTemplateTag(
         "CustomParams",
         JSON.stringify(jsonData.params)
@@ -203,23 +166,20 @@ export async function runDraftsActionExecutor(): Promise<void> {
       return;
     }
 
-    log(
-      "[DraftActionExecutor] Queuing action on draft: " + draftForAction.uuid
-    );
+    log("[DraftActionExecutor] Queuing action on draft: " + draftForAction.uuid);
     const success = app.queueAction(actionToQueue, draftForAction);
     if (!success) {
       log(`Failed to queue action "${actionName}".`, true);
     } else {
       log(`Queued action "${actionName}" successfully.`);
-
-      // Mark the ephemeral draft as processed
+      // Mark ephemeral draft as processed
       draft.addTag("status::processed");
       draft.update();
     }
   } catch (error) {
     log(`Error in runDraftsActionExecutor: ${String(error)}`, true);
   } finally {
-    // Trash the draft to keep it ephemeral
+    // Trash ephemeral draft
     if (!draft.isTrashed) {
       draft.trash();
       log("Trashed the ephemeral JSON draft (UUID: " + draft.uuid + ").");

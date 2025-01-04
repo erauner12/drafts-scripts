@@ -1,20 +1,5 @@
 import { log, showAlert } from "../helpers-utils";
 
-declare var draft: {
-  content: string;
-  uuid: string;
-  setTemplateTag(key: string, value: string): void;
-  getTemplateTag(key: string): string | null;
-};
-
-declare var app: {
-  queueAction(action: any, draft: any): boolean;
-};
-
-declare class Action {
-  static find(name: string): any;
-}
-
 /**
  * runBatchProcessAction()
  *
@@ -85,7 +70,7 @@ export function runBatchProcessAction(): void {
     return;
   }
 
-  // 4) Suppose ephemeralJson contains some items we want to process. For demonstration:
+  // 4) Suppose ephemeralJson contains some items we want to process.
   let params = ephemeralJson.params || {};
   log("[BatchProcessAction] params = " + JSON.stringify(params));
 

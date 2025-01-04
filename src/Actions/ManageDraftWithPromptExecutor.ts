@@ -1,58 +1,9 @@
 import { log, showAlert } from "../helpers-utils";
 
-declare var draft: Draft;
-declare var app: {
-  currentWorkspace: Workspace;
-  applyWorkspace(ws: Workspace): void;
-  queueAction(action: any, d: Draft): boolean;
-  displayInfoMessage(msg: string): void;
-};
-declare var editor: {
-  load(d: Draft): void;
-};
-declare var script: {
-  complete(): void;
-};
-
-declare class Action {
-  static find(name: string): any;
-}
-
-type draftFolderTab = "inbox" | "flagged" | "archive" | "trash" | "all";
-
-interface Draft {
-  uuid: string;
-  content: string;
-  title: string;
-  isTrashed: boolean;
-  isArchived: boolean;
-  isFlagged: boolean;
-  update(): void;
-  setTemplateTag(t: string, v: string): void;
-}
-
-interface Workspace {
-  loadFolder?: draftFolderTab;
-  tagFilter: string;
-  flaggedStatus: string;
-  // ...
-  query(filter: draftFolderTab): Draft[];
-}
-
-declare class Prompt {
-  title: string;
-  message: string;
-  buttonPressed: string;
-  addButton(title: string): void;
-  show(): boolean;
-}
-
 /**
  * runManageDraftWithPromptExecutor
  *
- * Attempt to read app.currentWorkspace.loadFolder to guide which actions to show,
- * but if it seems mismatched with the actual draft state, we fallback on just showing
- * the relevant actions from the draft’s isArchived/isTrashed/isFlagged.
+ * Manages the currently loaded draft via user prompts.
  */
 export function runManageDraftWithPromptExecutor(): void {
   if (!draft) {
@@ -62,7 +13,7 @@ export function runManageDraftWithPromptExecutor(): void {
   }
 
   const ws = app.currentWorkspace;
-  const folder = ws.loadFolder ?? "all"; // Might be "inbox", "archive", "flagged", "trash", "all" or undefined
+  const folder = ws.loadFolder ?? "all";
   log(`Workspace folder from app.currentWorkspace: ${folder}`);
 
   // We'll do the array capture in case we remove from the workspace
@@ -179,6 +130,23 @@ export function runManageDraftWithPromptExecutor(): void {
       log(
         queued ? "Queued MyActionName." : "Failed to queue MyActionName.",
         !queued
+      );
+      break;
+    }
+    case "Queue: BatchProcessAction": {
+      const store = { draftAction: "BatchProcessAction" };
+      draft.setTemplateTag("ExecutorData", JSON.stringify(store));
+      const executor2 = Action.find("Drafts Action Executor");
+      if (!executor2) {
+        showAlert("No Executor", "Can't find 'Drafts Action Executor'.");
+        break;
+      }
+      const queued2 = app.queueAction(executor2, draft);
+      log(
+        queued2
+          ? "Queued BatchProcessAction."
+          : "Failed to queue BatchProcessAction.",
+        !queued2
       );
       break;
     }
