@@ -7,7 +7,8 @@
 
     // Make sure we point to 'drafts-type-individual' for type definitions
     "typeRoots": [
-      "./drafts-type-individual"   // now TS will pick up *.d.ts in that folder
+      "./drafts-type-individual",   // now TS will pick up *.d.ts in that folder
+      "./custom-libs"  // Now TS will also pick up .d.ts in the custom-libs folder
     ],
 
     // We can still keep these settings from your original file
