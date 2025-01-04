@@ -2,6 +2,21 @@
 
 ## 1. Make the Executor a First-Class Citizen
 
+## Importing Plain JS Code
+If you have straightforward JavaScript code (not TypeScript) you wish to reuse, place it in a `.js` file (e.g., `utils/MyPlainJsUtils.js`), optionally create a matching `.d.ts` if you want type hints. Then, simply import it in your `.ts` code using ES module syntax:
+
+```ts
+import { getRandomInt } from "../utils/MyPlainJsUtils.js";
+
+	Note:
+		•	Remember to include the .js extension in the import path, because TypeScript (when moduleResolution is node) typically needs that for actual JS files.
+	•	If you want IntelliSense and compile-time checks, create a .d.ts with matching signatures.
+	•	You can then re-export or call those utilities in your Drafts action code as needed.
+
+Alternative Legacy / UMD-ish Approach
+
+If you have older code (or a code snippet you can’t easily rewrite), you can do…
+
 ## ES Modules for Local Custom Libraries
 
 ## Alternative Legacy / UMD-ish Approach

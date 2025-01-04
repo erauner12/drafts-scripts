@@ -7430,3 +7430,30 @@ function exampleUsingMyLegacyLib() {
   const greeting = legacyPerson.sayHelloLegacy();
   log("Legacy Person says: " + greeting);
 }
+// utils/MyPlainJsUtils.js
+function getRandomInt(min2, max2) {
+  return Math.floor(Math.random() * (max2 - min2)) + min2;
+}
+function capitalizeFirst(str) {
+  if (!str || typeof str !== "string")
+    return str;
+  return str.charAt(0).toUpperCase() + str.slice(1);
+}
+function createRange(start, end) {
+  const arr = [];
+  for (let i = start;i < end; i++) {
+    arr.push(i);
+  }
+  return arr;
+}
+
+// src/ExampleUsingPlainJs.ts
+function runPlainJsExample() {
+  const rand = getRandomInt(1, 10);
+  log("Random int between 1..9 = " + rand);
+  const phrase = "hello from plain js!";
+  const capitalized = capitalizeFirst(phrase);
+  log("Capitalized phrase = " + capitalized);
+  const myRange = createRange(5, 10);
+  log("Range from 5..9 = " + myRange.join(", "));
+}
