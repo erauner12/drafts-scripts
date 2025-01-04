@@ -1,4 +1,6 @@
-import { log, showAlert } from "../helpers-utils";
+import { log } from "../helpers-utils";
+
+import { queueJsonAction } from "./Executor";
 
 /**
  * runManageDraftWithPromptExecutor
@@ -120,34 +122,14 @@ export function runManageDraftWithPromptExecutor(): void {
 
     case "Queue: MyActionName": {
       const data = { draftAction: "MyActionName" };
-      draft.setTemplateTag("ExecutorData", JSON.stringify(data));
-      const ex = Action.find("Drafts Action Executor");
-      if (!ex) {
-        showAlert("No Executor", "Can't find 'Drafts Action Executor'.");
-        break;
-      }
-      const queued = app.queueAction(ex, draft);
-      log(
-        queued ? "Queued MyActionName." : "Failed to queue MyActionName.",
-        !queued
-      );
+      // Instead of manually setting "ExecutorData", call queueJsonAction
+      queueJsonAction(data);
       break;
     }
     case "Queue: BatchProcessAction": {
       const store = { draftAction: "BatchProcessAction" };
-      draft.setTemplateTag("ExecutorData", JSON.stringify(store));
-      const executor2 = Action.find("Drafts Action Executor");
-      if (!executor2) {
-        showAlert("No Executor", "Can't find 'Drafts Action Executor'.");
-        break;
-      }
-      const queued2 = app.queueAction(executor2, draft);
-      log(
-        queued2
-          ? "Queued BatchProcessAction."
-          : "Failed to queue BatchProcessAction.",
-        !queued2
-      );
+      // Use queueJsonAction from Executor
+      queueJsonAction(store);
       break;
     }
   }

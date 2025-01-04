@@ -2,6 +2,8 @@
 
 ## 1. Make the Executor a First-Class Citizen
 
+Now that we've introduced `Executor.ts`, we also have a helper method `queueJsonAction()` which writes ephemeral JSON directly to the active draft (or sets fallback data) and queues the “Drafts Action Executor” automatically. This makes ephemeral JSON-based calls simpler and standard across all actions. For example, in `ManageDraftWithPromptExecutor.ts` we replaced manual sets of `ExecutorData` with a single `queueJsonAction()` call.
+
 We already have two key scripts:
 
 - **`DraftActionExecutor`** (handles ephemeral JSON => finds `draftAction` => queues an action)

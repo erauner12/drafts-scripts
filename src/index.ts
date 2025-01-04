@@ -101,7 +101,7 @@ export { runDailyDriverMenu } from "./Actions/TaskActions/DailyDriverMenu";
 
 // Executor for JSON-based ephemeral drafts
 export { runBatchProcessAction } from "./Actions/BatchProcessAction";
-export { runDraftsActionExecutor } from "./Actions/DraftActionExecutor";
+export * from "./Actions/Executor";
 export { runMyActionName } from "./Actions/MyActionName";
 
 

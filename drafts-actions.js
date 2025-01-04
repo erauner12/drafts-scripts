@@ -1587,40 +1587,44 @@ function runBatchProcessAction() {
   draft.addTag("status::batch-processed");
   draft.update();
 }
-// src/Actions/DraftActionExecutor.ts
+// src/Actions/Executor.ts
+function parseEphemeralJson() {
+  let jsonData = {};
+  let usedEphemeral = false;
+  try {
+    const parsed = JSON.parse(draft.content.trim());
+    if (parsed && parsed.draftAction) {
+      jsonData = parsed;
+      usedEphemeral = true;
+      log("[Executor] Found ephemeral JSON with action: " + jsonData.draftAction);
+    }
+  } catch {
+    log("[Executor] No valid ephemeral JSON found in draft.content, continuing...");
+  }
+  if (!usedEphemeral) {
+    const fallbackData = draft.getTemplateTag("ExecutorData");
+    if (fallbackData) {
+      log("[Executor] Found fallback JSON in 'ExecutorData' tag.");
+      try {
+        const parsedFallback = JSON.parse(fallbackData);
+        Object.assign(jsonData, parsedFallback);
+      } catch {
+        log("[Executor] Could not parse fallback JSON from ExecutorData.", true);
+      }
+    }
+  }
+  return jsonData;
+}
 async function runDraftsActionExecutor() {
   if (draft.hasTag("status::processed")) {
-    log("[DraftActionExecutor] Ephemeral draft has 'status::processed'; skipping re-processing.");
+    log("[Executor] Ephemeral draft has 'status::processed'; skipping re-processing.");
     return;
   }
   try {
-    log("[DraftActionExecutor] Starting runDraftsActionExecutor...");
-    log(`[DraftActionExecutor] Ephemeral draft content:
+    log("[Executor] Starting runDraftsActionExecutor...");
+    log(`[Executor] Ephemeral draft content:
 ` + draft.content);
-    let jsonData = {};
-    let usedEphemeral = false;
-    try {
-      const parsed = JSON.parse(draft.content.trim());
-      if (parsed && parsed.draftAction) {
-        jsonData = parsed;
-        usedEphemeral = true;
-        log("[Executor] Found ephemeral JSON with action: " + jsonData.draftAction);
-      }
-    } catch {
-      log("[Executor] No valid ephemeral JSON found, continuing...");
-    }
-    if (!usedEphemeral) {
-      const fallbackData = draft.getTemplateTag("ExecutorData");
-      if (fallbackData) {
-        log("[Executor] Found fallback JSON in 'ExecutorData' tag.");
-        try {
-          const parsedFallback = JSON.parse(fallbackData);
-          Object.assign(jsonData, parsedFallback);
-        } catch {
-          log("[Executor] Could not parse fallback JSON.", true);
-        }
-      }
-    }
+    let jsonData = parseEphemeralJson();
     if (!jsonData.draftAction) {
       log("[Executor] No 'draftAction' found in ephemeral/fallback JSON.");
       const p = new Prompt;
@@ -1657,17 +1661,17 @@ async function runDraftsActionExecutor() {
       }
       return;
     }
-    log("[DraftActionExecutor] Parsed JSON:", false);
-    log(JSON.stringify(jsonData), false);
+    log(`[Executor] Parsed ephemeral JSON:
+` + JSON.stringify(jsonData, null, 2));
     const actionName = jsonData.draftAction;
-    log("[DraftActionExecutor] actionName: " + (actionName || "undefined"));
+    log("[Executor] actionName: " + (actionName || "undefined"));
     if (!actionName) {
       showAlert("No Action Provided", "Please provide 'draftAction' in the JSON.");
       return;
     }
     let realDraft = null;
     if (jsonData.draftData) {
-      log("[DraftActionExecutor] Found draftData. Creating a new draft with that data...");
+      log("[Executor] Found draftData. Creating a new real draft...");
       realDraft = Draft.create();
       if (typeof jsonData.draftData.content === "string") {
         realDraft.content = jsonData.draftData.content;
@@ -1680,23 +1684,21 @@ async function runDraftsActionExecutor() {
       }
       realDraft.setTemplateTag("DraftData", JSON.stringify(jsonData.draftData));
       realDraft.update();
-      log("[DraftActionExecutor] Created a new real draft. UUID = " + realDraft.uuid);
+      log("[Executor] Created new real draft, UUID = " + realDraft.uuid);
     } else {
-      log("[DraftActionExecutor] No draftData object found in JSON.");
+      log("[Executor] No draftData in ephemeral JSON.");
     }
-    const draftForAction = realDraft || draft;
+    let draftForAction = realDraft || draft;
     if (jsonData.params) {
-      log("[DraftActionExecutor] Found params. Storing in template tag 'CustomParams'.");
+      log("[Executor] Found params. Storing in 'CustomParams' tag on draft.");
       draftForAction.setTemplateTag("CustomParams", JSON.stringify(jsonData.params));
-    } else {
-      log("[DraftActionExecutor] No params object found in JSON.");
     }
     const actionToQueue = Action.find(actionName);
     if (!actionToQueue) {
       showAlert("Action Not Found", `Could not find an action named: "${actionName}"`);
       return;
     }
-    log("[DraftActionExecutor] Queuing action on draft: " + draftForAction.uuid);
+    log("[Executor] Queuing action: " + actionName + " on draft: " + draftForAction.uuid);
     const success = app.queueAction(actionToQueue, draftForAction);
     if (!success) {
       log(`Failed to queue action "${actionName}".`, true);
@@ -1706,11 +1708,31 @@ async function runDraftsActionExecutor() {
       draft.update();
     }
   } catch (error) {
-    log(`Error in runDraftsActionExecutor: ${String(error)}`, true);
+    log(`[Executor] Error in runDraftsActionExecutor: ${String(error)}`, true);
   } finally {
     if (!draft.isTrashed) {
       draft.trash();
-      log("Trashed the ephemeral JSON draft (UUID: " + draft.uuid + ").");
+      log("Trashed ephemeral JSON draft (UUID: " + draft.uuid + ").");
+    }
+  }
+}
+function queueJsonAction(jsonData, skipTrashing = false) {
+  const ephemeralContent = JSON.stringify(jsonData);
+  draft.content = ephemeralContent;
+  draft.update();
+  log(`[Executor] queueJsonAction wrote ephemeral JSON to draft:
+${ephemeralContent}`);
+  const executorAction = Action.find("Drafts Action Executor");
+  if (!executorAction) {
+    showAlert("Executor Not Found", "Unable to locate 'Drafts Action Executor'.");
+    return;
+  }
+  const success = app.queueAction(executorAction, draft);
+  if (!success) {
+    log("[Executor] Failed to queue Drafts Action Executor with ephemeral JSON", true);
+  } else {
+    log("[Executor] Successfully queued ephemeral JSON via queueJsonAction().");
+    if (!skipTrashing) {
     }
   }
 }
@@ -1879,26 +1901,12 @@ function runManageDraftWithPromptExecutor() {
       break;
     case "Queue: MyActionName": {
       const data = { draftAction: "MyActionName" };
-      draft.setTemplateTag("ExecutorData", JSON.stringify(data));
-      const ex = Action.find("Drafts Action Executor");
-      if (!ex) {
-        showAlert("No Executor", "Can't find 'Drafts Action Executor'.");
-        break;
-      }
-      const queued = app.queueAction(ex, draft);
-      log(queued ? "Queued MyActionName." : "Failed to queue MyActionName.", !queued);
+      queueJsonAction(data);
       break;
     }
     case "Queue: BatchProcessAction": {
       const store = { draftAction: "BatchProcessAction" };
-      draft.setTemplateTag("ExecutorData", JSON.stringify(store));
-      const executor2 = Action.find("Drafts Action Executor");
-      if (!executor2) {
-        showAlert("No Executor", "Can't find 'Drafts Action Executor'.");
-        break;
-      }
-      const queued2 = app.queueAction(executor2, draft);
-      log(queued2 ? "Queued BatchProcessAction." : "Failed to queue BatchProcessAction.", !queued2);
+      queueJsonAction(store);
       break;
     }
   }
