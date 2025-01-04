@@ -7397,3 +7397,36 @@ function exampleUsingMyCoolLib() {
   const me = new Person("Evan");
   log("Person says: " + me.sayHello());
 }
+// custom-libs/MyLegacyLib.js
+var exports_MyLegacyLib = {};
+(function(root) {
+  function greetLegacy(name) {
+    console.log("[MyLegacyLib] Hello from legacy greet, " + name);
+  }
+
+  class OldStylePerson {
+    constructor(name) {
+      this.name = name;
+    }
+    sayHelloLegacy() {
+      return "[MyLegacyLib:Legacy] Hi, I'm " + this.name;
+    }
+  }
+  const MyLegacyLib = {
+    greetLegacy,
+    OldStylePerson
+  };
+  root.MyLegacyLib = MyLegacyLib;
+})(globalThis);
+
+// src/ExampleUsingMyLegacyLib.ts
+function exampleUsingMyLegacyLib() {
+  if (typeof exports_MyLegacyLib === "undefined") {
+    log("MyLegacyLib not found. Did you require('custom-libs/MyLegacyLib.js')?");
+    return;
+  }
+  undefined("Evan (Legacy)");
+  const legacyPerson = new undefined("OldSchool");
+  const greeting = legacyPerson.sayHelloLegacy();
+  log("Legacy Person says: " + greeting);
+}
