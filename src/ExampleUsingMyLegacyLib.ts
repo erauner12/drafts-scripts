@@ -10,7 +10,6 @@
  * 2. Then call exampleUsingMyLegacyLib() from a script action.
  */
 
-import * as MyLegacyLib from "../custom-libs/MyLegacyLib";
 import { log } from "./helpers/helpers-utils";
 
 /**
@@ -20,7 +19,7 @@ import { log } from "./helpers/helpers-utils";
  */
 export function exampleUsingMyLegacyLib() {
   // Check if MyLegacyLib is present on the global object
-  if (typeof MyLegacyLib === "undefined") {
+  if (typeof globalThis.MyLegacyLib === "undefined") {
     log(
       "MyLegacyLib not found. Did you require('custom-libs/MyLegacyLib.js')?"
     );
@@ -28,10 +27,10 @@ export function exampleUsingMyLegacyLib() {
   }
 
   // Use the global MyLegacyLib's greetLegacy function:
-  MyLegacyLib.greetLegacy("Evan (Legacy)");
+  globalThis.MyLegacyLib.greetLegacy("Evan (Legacy)");
 
   // Create a legacy person and greet:
-  const legacyPerson = new MyLegacyLib.OldStylePerson("OldSchool");
+  const legacyPerson = new globalThis.MyLegacyLib.OldStylePerson("OldSchool");
   const greeting = legacyPerson.sayHelloLegacy();
   log("Legacy Person says: " + greeting);
 }
