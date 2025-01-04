@@ -64,6 +64,26 @@ export function showAlert(title: string, message: string): void {
 }
 
 /**
+ * A reusable helper to show a simple Prompt with multiple buttons.
+ * Returns the text of the button pressed, or null if cancelled or closed.
+ */
+export function showPromptWithButtons(title: string, message: string, buttonLabels: string[]): string | null {
+  const p = new Prompt();
+  p.title = title;
+  p.message = message;
+  for (const label of buttonLabels) {
+    p.addButton(label);
+  }
+  if (!p.show()) {
+    return null;
+  }
+  if (p.buttonPressed === "Cancel") {
+    return null;
+  }
+  return p.buttonPressed;
+}
+
+/**
  * Gets or creates a Todoist credential instance.
  * @returns {Todoist} A configured Todoist instance with the user's API token
  */

@@ -5738,6 +5738,21 @@ function showAlert2(title, message) {
 
 ${message}`);
 }
+function showPromptWithButtons(title, message, buttonLabels) {
+  const p2 = new Prompt;
+  p2.title = title;
+  p2.message = message;
+  for (const label of buttonLabels) {
+    p2.addButton(label);
+  }
+  if (!p2.show()) {
+    return null;
+  }
+  if (p2.buttonPressed === "Cancel") {
+    return null;
+  }
+  return p2.buttonPressed;
+}
 function getTodoistCredential() {
   const credential = Credential.create("Todoist", "Todoist API access");
   credential.addPasswordField("token", "API Token");
@@ -6811,20 +6826,20 @@ async function handleOverdueTasksIndividually(todoist) {
   }
   for (const task of overdueTasks) {
     log(`Processing overdue task: ${task.content}`);
-    const p = new Prompt;
-    p.title = "Overdue Task";
-    p.message = `Task: "${task.content}"
+    const p2 = new Prompt;
+    p2.title = "Overdue Task";
+    p2.message = `Task: "${task.content}"
 Choose an action:`;
-    p.addButton("Reschedule to Later Today");
-    p.addButton("Reschedule to Tomorrow");
-    p.addButton("Remove Due Date");
-    p.addButton("Complete Task");
-    p.addButton("Skip");
-    if (!p.show() || p.buttonPressed === "Skip") {
+    p2.addButton("Reschedule to Later Today");
+    p2.addButton("Reschedule to Tomorrow");
+    p2.addButton("Remove Due Date");
+    p2.addButton("Complete Task");
+    p2.addButton("Skip");
+    if (!p2.show() || p2.buttonPressed === "Skip") {
       log(`Skipping task "${task.content}"`);
       continue;
     }
-    switch (p.buttonPressed) {
+    switch (p2.buttonPressed) {
       case "Reschedule to Later Today": {
         const laterToday = new Date;
         laterToday.setHours(18, 0, 0, 0);
@@ -6883,26 +6898,26 @@ async function shiftAllTodayTasksBy(todoist) {
     showAlert2("No Today Tasks", "You have no tasks scheduled for today.");
     return;
   }
-  const p = new Prompt;
-  p.title = "Shift Today’s Tasks";
-  p.message = "Enter how many minutes to push all tasks forward:";
-  p.addButton("15");
-  p.addButton("30");
-  p.addButton("45");
-  p.addButton("60");
-  p.addButton("Custom");
-  p.addButton("Cancel");
-  if (!p.show() || p.buttonPressed === "Cancel") {
+  const p2 = new Prompt;
+  p2.title = "Shift Today’s Tasks";
+  p2.message = "Enter how many minutes to push all tasks forward:";
+  p2.addButton("15");
+  p2.addButton("30");
+  p2.addButton("45");
+  p2.addButton("60");
+  p2.addButton("Custom");
+  p2.addButton("Cancel");
+  if (!p2.show() || p2.buttonPressed === "Cancel") {
     log("User canceled shifting tasks.");
     return;
   }
   let shiftMinutes = 0;
-  switch (p.buttonPressed) {
+  switch (p2.buttonPressed) {
     case "15":
     case "30":
     case "45":
     case "60":
-      shiftMinutes = parseInt(p.buttonPressed);
+      shiftMinutes = parseInt(p2.buttonPressed);
       break;
     case "Custom": {
       const customPrompt = new Prompt;
@@ -7132,26 +7147,16 @@ async function runDraftsActionExecutor() {
     let jsonData = parseEphemeralJson();
     if (!jsonData.draftAction) {
       log("[Executor] No 'draftAction' found in ephemeral/fallback JSON.");
-      const p = new Prompt;
-      p.title = "No draftAction Found";
-      p.message = "Would you like to pick an action to run on the currently loaded draft in the editor?";
-      p.addButton("Pick Action");
-      p.addButton("Cancel");
-      if (!p.show() || p.buttonPressed === "Cancel") {
+      const buttonPressed = showPromptWithButtons("No draftAction Found", "Would you like to pick an action to run on the currently loaded draft in the editor?", ["Pick Action", "Cancel"]);
+      if (!buttonPressed) {
         log("[Executor] User canceled or no ephemeral JSON. Exiting.");
         return;
       }
-      const actionPrompt = new Prompt;
-      actionPrompt.title = "Select Action";
-      actionPrompt.message = "Choose an action to run on this draft:";
-      actionPrompt.addButton("MyActionName");
-      actionPrompt.addButton("BatchProcessAction");
-      actionPrompt.addButton("Cancel");
-      if (!actionPrompt.show() || actionPrompt.buttonPressed === "Cancel") {
+      const chosenActionName = showPromptWithButtons("Select Action", "Choose an action to run on this draft:", ["MyActionName", "BatchProcessAction", "Cancel"]);
+      if (!chosenActionName) {
         log("[Executor] User canceled second prompt. Exiting.");
         return;
       }
-      const chosenActionName = actionPrompt.buttonPressed;
       log("[Executor] User selected fallback action: " + chosenActionName);
       const fallbackAction = Action.find(chosenActionName);
       if (!fallbackAction) {
@@ -7251,16 +7256,9 @@ function runManageDraftFlow() {
   }
   const folder = app.currentWorkspace.loadFolder ?? "all";
   log("Workspace folder: " + folder);
-  const p = new Prompt;
-  p.title = "Manage Draft Flow";
-  p.message = `Folder: ${folder} || Draft: "${draft.title}"
-(${draft.uuid})`;
-  p.addButton("Trash");
-  p.addButton("Move to Inbox");
-  p.addButton("Archive");
-  p.addButton("Queue: MyActionName");
-  p.addButton("Cancel");
-  if (!p.show() || p.buttonPressed === "Cancel") {
+  const buttonPressed = showPromptWithButtons("Manage Draft Flow", `Folder: ${folder} || Draft: "${draft.title}"
+(${draft.uuid})`, ["Trash", "Move to Inbox", "Archive", "Queue: MyActionName", "Cancel"]);
+  if (!buttonPressed) {
     log("User canceled ManageDraftFlow.");
     script.complete();
     return;

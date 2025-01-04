@@ -1,5 +1,7 @@
 import { log, showAlert } from "../helpers/helpers-utils";
 
+import { showPromptWithButtons } from "../helpers/helpers-utils";
+
 /**
  * Executor: Central place for ephemeral JSON logic or
  * "first-class" action queueing.
@@ -76,29 +78,25 @@ export async function runDraftsActionExecutor(): Promise<void> {
     // If no draftAction, prompt user
     if (!jsonData.draftAction) {
       log("[Executor] No 'draftAction' found in ephemeral/fallback JSON.");
-      const p = new Prompt();
-      p.title = "No draftAction Found";
-      p.message =
-        "Would you like to pick an action to run on the currently loaded draft in the editor?";
-      p.addButton("Pick Action");
-      p.addButton("Cancel");
-      if (!p.show() || p.buttonPressed === "Cancel") {
+      const buttonPressed = showPromptWithButtons(
+        "No draftAction Found",
+        "Would you like to pick an action to run on the currently loaded draft in the editor?",
+        ["Pick Action", "Cancel"]
+      );
+      if (!buttonPressed) {
         log("[Executor] User canceled or no ephemeral JSON. Exiting.");
         return;
       }
       // Let user choose an action
-      const actionPrompt = new Prompt();
-      actionPrompt.title = "Select Action";
-      actionPrompt.message = "Choose an action to run on this draft:";
-      actionPrompt.addButton("MyActionName");
-      actionPrompt.addButton("BatchProcessAction");
-      actionPrompt.addButton("Cancel");
-      if (!actionPrompt.show() || actionPrompt.buttonPressed === "Cancel") {
+      const chosenActionName = showPromptWithButtons(
+        "Select Action",
+        "Choose an action to run on this draft:",
+        ["MyActionName", "BatchProcessAction", "Cancel"]
+      );
+      if (!chosenActionName) {
         log("[Executor] User canceled second prompt. Exiting.");
         return;
       }
-
-      const chosenActionName = actionPrompt.buttonPressed;
       log("[Executor] User selected fallback action: " + chosenActionName);
 
       const fallbackAction = Action.find(chosenActionName);

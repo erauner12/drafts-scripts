@@ -1,5 +1,5 @@
 import { queueJsonAction } from "../executor/Executor";
-import { log } from "../helpers/helpers-utils";
+import { log, showPromptWithButtons } from "../helpers/helpers-utils";
 
 declare const script: Script;
 
@@ -19,19 +19,13 @@ export function runManageDraftFlow(): void {
   log("Workspace folder: " + folder);
 
   // Build a minimal prompt
-  const p = new Prompt();
-  p.title = "Manage Draft Flow";
-  p.message = `Folder: ${folder} || Draft: "${draft.title}"\n(${draft.uuid})`;
+  const buttonPressed = showPromptWithButtons(
+    "Manage Draft Flow",
+    `Folder: ${folder} || Draft: "${draft.title}"\n(${draft.uuid})`,
+    ["Trash", "Move to Inbox", "Archive", "Queue: MyActionName", "Cancel"]
+  );
 
-  // Add some abstract or minimal actions
-  p.addButton("Trash");
-  p.addButton("Move to Inbox");
-  p.addButton("Archive");
-  p.addButton("Queue: MyActionName");
-  p.addButton("Cancel");
-
-  // Show prompt
-  if (!p.show() || p.buttonPressed === "Cancel") {
+  if (!buttonPressed) {
     log("User canceled ManageDraftFlow.");
     script.complete();
     return;
