@@ -23,6 +23,7 @@
     // The entire 'drafts-type-individual' directory for definitions,
     // plus your source code
     "./drafts-type-individual/*.d.ts",
+    "./custom-libs/*.d.ts",
     "./src/**/*.ts"
   ]
 }

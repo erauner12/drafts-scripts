@@ -6,13 +6,15 @@
     "bun-types": "^1.0.3",
     "rollup": "^3.20.7",
     "rollup-plugin-typescript2": "^0.34.1",
-    "rollup-watch": "^4.3.1"
+    "rollup-watch": "^4.3.1",
+    "@types/lodash": "^4.14.202"
   },
   "scripts": {
     "build": "bun scripts/build.js",
     "watch": "bun scripts/build.js --watch"
   },
   "dependencies": {
-    "@doist/todoist-api-typescript": "^3.0.3"
+    "@doist/todoist-api-typescript": "^3.0.3",
+    "lodash": "^4.17.21"
   }
 }

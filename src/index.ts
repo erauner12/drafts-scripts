@@ -109,3 +109,6 @@ export { runManageDraftWithPromptExecutor } from "./Actions/ManageDraftWithPromp
 
 /** Add the new AiTextToCalendar action */
 export { runAiTextToCalendar } from "./Actions/AiTextToCalendar";
+
+// Re-export the new example
+export { exampleUsingLodash, exampleUsingMyCoolLib } from "./ExampleUsingLodash";
