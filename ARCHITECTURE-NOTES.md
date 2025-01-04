@@ -1,35 +1,62 @@
-# Architecture Notes: Executor vs. Actions
+# Drafts Executor: Architecture & Integration
 
-## Overview
-In this repository, our **DraftActionExecutor** plays a specialized role:
-- It **parses** ephemeral or fallback JSON to figure out which action should be queued.
-- It **queues** that action on the correct draft.
-- It **trashes** ephemeral drafts after processing.
+## 1. Make the Executor a First-Class Citizen
 
-Meanwhile, your **user-defined actions** (like `MyActionName` or `ManageDraftWithPrompt`) handle:
-- Business logic and user interactions (prompting, setting tags, archiving drafts, etc.)
-- Possibly reloading the draft in the editor to show changes.
+We already have two key scripts:
 
-## Who Should Handle Editor/Workspace Reloads?
-It depends on your workflow design:
+- **`DraftActionExecutor`** (handles ephemeral JSON => finds `draftAction` => queues an action)
+- **`BatchProcessAction`** (parses ephemeral or fallback JSON => possibly re-queues again)
 
-1. **Minimal Executor**
-   - **Executor** stays simple and does not do user interaction or editor reloads.
-   - **Actions** (like `MyActionName`) handle user prompts, reloading the editor, or modifying the workspace.
-   - This approach keeps the Executor’s logic “clean” and focused on ephemeral/fallback JSON.
+Currently, these scripts let us:
+- Call Drafts externally with JSON (ephemeral approach).
+- Or store fallback JSON in `ExecutorData`.
+- Or default to prompting the user if no JSON is found.
 
-2. **Full Orchestration in Executor**
-   - The **Executor** might handle loading the correct workspace, reloading the editor, or performing additional post-processing steps.
-   - Your user actions become simpler “pure logic modules” that rely on the Executor to do environment setup and teardown.
-   - This can centralize orchestration in one place (the Executor) but can complicate the Executor logic if you have many diverse actions.
+**Goal**: Turn this into a “first-class” solution widely re-used across actions.
+**Strategy**:
+1. Maintain or unify the “Executor” logic in a single script (like our existing `DraftActionExecutor.ts`).
+2. Possibly create utility methods or classes if we want friendlier function calls, e.g. `app.extendedQueueJSON(...)`.
+3. Rely on built-in `app.queueAction(...)` for the final step—**we are simply augmenting the path to get the desired action name & optional ephemeral data**.
 
-3. **Hybrid Approach**
-   - Some minimal environment checks in the Executor (like ensuring a certain workspace is active) but letting each action do final reloading of the draft if needed.
-   - Possibly the Executor sets a “thisWorkspaceNeedsToBeActive” tag or modifies some ephemeral data that an action can read to know which environment to re-load.
+## 2. Incorporate Drafts’ Type Definitions
 
-## Recommendation
-Most people opt for a **Minimal Executor** pattern:
-1. **Executor**: Minimal ephemeral JSON logic – parse, queue the real action, optionally trash ephemeral draft.
-2. **User Action**: All user interaction, editor reloading, tagging, or workspace modifications.
+Drafts provides official TypeScript definitions in the [Drafts GitHub repo](https://github.com/agiletortoise/drafts-script-reference). You can reference them so that you don’t have to define `App`, `Draft`, `Prompt`, etc. yourself. In your `tsconfig.json`, you can do something like:
 
-This avoids conflating ephemeral logic (which is universal to every queued action) with your domain-specific logic (which is unique to each action). It also avoids complicated branching in the Executor, so the same Executor can be reused across many different use cases. If you truly want a single script that orchestrates everything, a “ManageDraftWithPromptExecutor” approach can be used. But in typical Drafts usage, each action is free to do final steps, including reloading the editor or presenting prompts.
+```json
+{
+	"compilerOptions": {
+	"module": "ESNext",
+	"target": "ESNext",
+	"moduleResolution": "node",
+	"lib": ["ESNext", "DOM"],
+	"typeRoots": [
+		"./node_modules/@types",   // if installed via e.g. npm
+		"./my-drafts-types"        // or the folder containing the official .d.ts
+	],
+	...
+	},
+	"include": [
+	"./my-drafts-types/*.d.ts",
+	"./src/**/*.ts"
+	]
+}
+
+Then drop the .d.ts files from Drafts (such as App.d.ts, Draft.d.ts, etc.) into that my-drafts-types directory so your TypeScript build can see and use them. Now your code can refer to declare var app: App;, etc. without having to re-declare them in your own definitions.
+
+3. Approach That Fits Our Proposed Direction
+	•	Use DraftActionExecutor as the universal entry point for ephemeral JSON.
+	•	Optionally define a new “Batch” or “Multi-Executor” method if you want advanced chaining.
+	•	Import the official .d.ts files for full type coverage.
+	•	Continue removing “export” statements with your removeExportsPlugin, since Drafts can’t handle them in the final script.
+
+Potential Layout:
+	1.	src/Executor.ts
+	•	Contains runDraftsActionExecutor()
+	•	Possibly exports a small utility function e.g. queueJsonAction(jsonData: any) that internally sets ephemeral content, etc.
+	2.	src/BatchProcessAction.ts
+	•	Illustrates a standard usage of ephemeral or fallback data.
+	3.	tsconfig.json includes the official Drafts *.d.ts.
+
+This “execution” design is already quite close to what you have: ephemeral JSON => parse => queue => done. By incorporating the official types, your code is recognized by TypeScript with minimal duplication.
+
+Final: Because you already have a working ephemeral system, this approach simply organizes it better, merges official type definitions, and ensures everything is typed. That makes the Executor pattern truly “first-class” for your entire repo.
