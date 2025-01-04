@@ -1,7 +1,7 @@
 import _ from "lodash";
 // The import above uses the official types for lodash installed via "npm install --save lodash @types/lodash"
 
-import * as MyCoolLib from "../custom-libs/MyCoolLib";
+import { greet, Person } from "../custom-libs/MyCoolLib";
 import { log } from "./helpers-utils";
 // Using ES modules import syntax
 
@@ -14,8 +14,8 @@ export function exampleUsingLodash() {
 
 // Example usage of MyCoolLib:
 export function exampleUsingMyCoolLib() {
-  MyCoolLib.greet("Evan");
+  greet("Evan");
 
-  const me = new MyCoolLib.Person("Evan");
+  const me = new Person("Evan");
   log("Person says: " + me.sayHello());
 }

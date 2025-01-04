@@ -2,6 +2,68 @@
 
 ## 1. Make the Executor a First-Class Citizen
 
+## ES Modules for Local Custom Libraries
+
+## Alternative Legacy / UMD-ish Approach
+If you have older code (or a code snippet you can’t easily rewrite), you might use a namespace-based .d.ts + a global script that attaches itself to `globalThis`. For instance:
+
+- **`MyLegacyLib.d.ts`**:
+	```ts
+	declare namespace MyLegacyLib {
+	function greetLegacy(name: string): void;
+	class OldStylePerson {
+		// ...
+	}
+	}
+	export as namespace MyLegacyLib;
+	export = MyLegacyLib;
+
+	•	MyLegacyLib.js:
+
+(function (root) {
+	function greetLegacy(name) { ... }
+	class OldStylePerson { ... }
+	root.MyLegacyLib = { greetLegacy, OldStylePerson };
+}(globalThis));
+
+
+
+Then, when you load MyLegacyLib.js (e.g. require("custom-libs/MyLegacyLib.js") in Drafts), you end up with a global MyLegacyLib object. Using it in code might look like:
+
+MyLegacyLib.greetLegacy("someone");
+let oldP = new MyLegacyLib.OldStylePerson("someone else");
+
+Caveat: This is not recommended for new code, but it can be useful if you must integrate older patterns or third-party UMD libraries.
+If you prefer standard ES modules for your custom `.ts` + `.d.ts` libraries, define them like so:
+
+- **`MyCoolLib.d.ts`**:
+	```ts
+	export function greet(name: string): void;
+	export class Person {
+	constructor(name: string);
+	sayHello(): string;
+	}
+
+	•	MyCoolLib.ts:
+
+export function greet(name: string): void {
+	console.log("Hello from MyCoolLib, " + name);
+}
+export class Person {
+	// ...
+}
+
+
+	•	Then import using named exports:
+
+import { greet, Person } from "../custom-libs/MyCoolLib";
+greet("Evan");
+const me = new Person("Evan");
+
+
+
+This avoids the “UMD global vs. module” warnings and keeps everything aligned with modern ES module usage.
+
 Now that we've introduced `Executor.ts`, we also have a helper method `queueJsonAction()` which writes ephemeral JSON directly to the active draft (or sets fallback data) and queues the “Drafts Action Executor” automatically. This makes ephemeral JSON-based calls simpler and standard across all actions. For example, in `ManageDraftWithPromptExecutor.ts` we replaced manual sets of `ExecutorData` with a single `queueJsonAction()` call.
 
 We already have two key scripts:

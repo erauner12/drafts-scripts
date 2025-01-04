@@ -1,20 +1,22 @@
 /**
  * MyCoolLib is a fictional library that demonstrates how to declare custom type definitions
- * in a local .d.ts file. These might represent external JavaScript code you wrote or found.
+ * in a local .ts file. We match the .d.ts exports exactly, for consistent ES modules usage.
  */
 
-// If it's purely a type definition:
-declare namespace MyCoolLib {
-  // Example: a function
-  function greet(name: string): void;
-
-  // Example: a class
-  class Person {
-    constructor(name: string);
-    sayHello(): string;
-  }
+/** Prints a greeting */
+export function greet(name: string): void {
+  console.log("Hello from MyCoolLib, " + name);
 }
 
-// Let the compiler know to put these in the global namespace or allow named import:
-export as namespace MyCoolLib;
-export = MyCoolLib;
+/** A sample class */
+export class Person {
+  name: string;
+
+  constructor(name: string) {
+    this.name = name;
+  }
+
+  sayHello(): string {
+    return `Hi, I'm ${this.name}`;
+  }
+}
