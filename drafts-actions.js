@@ -740,6 +740,458 @@ function runOpenInBrowser(taskId) {
   app.displaySuccessMessage("Opened Todoist task in browser.");
 }
 
+// src/Actions/TodoistActions/AddOrEditCommentAction.ts
+async function runAddOrEditComment(todoist, taskId, selectedText) {
+  try {
+    console.log("Adding or editing comment for Todoist task...");
+    const comments = todoist.getComments({ task_id: taskId });
+    const options = ["Create New Comment"];
+    const commentMap = {};
+    comments.forEach((comment, index) => {
+      const snippet = comment.content.substring(0, 30).replace(/\r?\n|\r/g, " ");
+      const option = `Edit Comment ${index + 1}: ${snippet}...`;
+      options.push(option);
+      commentMap[option] = comment;
+    });
+    const actionPrompt = new Prompt;
+    actionPrompt.title = "Todoist Comments";
+    actionPrompt.message = "Choose an option:";
+    options.forEach((option) => actionPrompt.addButton(option));
+    actionPrompt.addButton("Cancel");
+    const actionResult = actionPrompt.show();
+    if (!actionResult || actionPrompt.buttonPressed === "Cancel") {
+      console.log("User cancelled comment input.");
+      cancelAction("User cancelled the action");
+      return;
+    }
+    const selectedOption = actionPrompt.buttonPressed;
+    let commentText = "";
+    let commentId = null;
+    if (selectedOption !== "Create New Comment") {
+      const comment = commentMap[selectedOption];
+      commentId = comment.id;
+      commentText = comment.content;
+    }
+    const commentPrompt = new Prompt;
+    commentPrompt.title = commentId ? "Edit Comment" : "Add Comment";
+    commentPrompt.message = "Enter your comment:";
+    commentPrompt.addTextView("comment", "Comment", commentText || selectedText, {
+      height: 100
+    });
+    commentPrompt.addButton("Submit");
+    commentPrompt.addButton("Cancel");
+    const commentResult = commentPrompt.show();
+    if (!commentResult || commentPrompt.buttonPressed === "Cancel") {
+      console.log("User cancelled comment input.");
+      cancelAction("User cancelled the action");
+      return;
+    }
+    commentText = commentPrompt.fieldValues["comment"];
+    if (commentId) {
+      const result2 = todoist.updateComment(commentId, {
+        content: commentText
+      });
+      if (result2 && result2.id) {
+        app.displaySuccessMessage("Comment updated on Todoist task.");
+        console.log("Comment updated on Todoist task.");
+      } else {
+        console.error("Failed to update comment on Todoist task:", result2, todoist.lastError);
+        app.displayErrorMessage("Failed to update comment on Todoist task.");
+        failAction("An unexpected error occurred during execution");
+      }
+    } else {
+      const result2 = todoist.createComment({
+        task_id: taskId,
+        content: commentText
+      });
+      if (result2 && result2.id) {
+        app.displaySuccessMessage("Comment added to Todoist task.");
+        console.log("Comment added to Todoist task.");
+      } else {
+        console.error("Failed to add comment to Todoist task:", result2, todoist.lastError);
+        app.displayErrorMessage("Failed to add comment to Todoist task.");
+        failAction("Failed to fetch issue details from Jira.");
+      }
+    }
+  } catch (error) {
+    console.error("Error in runAddOrEditComment:", error);
+    app.displayErrorMessage("An error occurred while processing comment.");
+    failAction("Failed to fetch GitHub item details");
+  }
+}
+
+// src/Actions/TodoistActions/OpenChatGPTClipboardAction.ts
+function runOpenChatGPTClipboard(refinedPrompt) {
+  try {
+    console.log("openChatGPTWithClipboard: Called with refinedPrompt length =", refinedPrompt.length);
+    const existingClipboard = app.getClipboard();
+    console.log("openChatGPTWithClipboard: Current clipboard length =", existingClipboard ? existingClipboard.length : 0);
+    const messageText = `You have a refined prompt and possibly existing clipboard text.
+
+Refined Prompt length: ${refinedPrompt.length}
+Existing Clipboard length: ${existingClipboard ? existingClipboard.length : 0}`;
+    const prompt = new Prompt;
+    prompt.title = "Open ChatGPT?";
+    prompt.message = messageText;
+    prompt.addLabel("lbl1", "Refined Prompt:");
+    prompt.addTextView("refined", "", refinedPrompt, { height: 80 });
+    prompt.addLabel("lbl2", "Existing Clipboard:");
+    prompt.addTextView("clip", "", existingClipboard || "", { height: 80 });
+    prompt.addButton("Merge & Copy");
+    prompt.addButton("Use Only Refined", undefined, true);
+    prompt.addButton("Cancel");
+    const didShow = prompt.show();
+    if (!didShow || prompt.buttonPressed === "Cancel") {
+      console.log("openChatGPTWithClipboard: User canceled the ChatGPT open action.");
+      return;
+    }
+    let finalText = "";
+    if (prompt.buttonPressed === "Merge & Copy") {
+      console.log("openChatGPTWithClipboard: Merging refinedPrompt with existingClipboard...");
+      finalText = refinedPrompt + `
+
+---
+
+` + (existingClipboard || "");
+    } else {
+      console.log("openChatGPTWithClipboard: Using only refined prompt...");
+      finalText = refinedPrompt;
+    }
+    console.log("openChatGPTWithClipboard: finalText length =", finalText.length);
+    app.setClipboard(finalText);
+    console.log("openChatGPTWithClipboard: Clipboard updated.");
+    let chatGPTUrl = device.systemName === "iOS" ? "googlechrome://chat.openai.com/chat" : "https://chat.openai.com/chat";
+    app.openURL(chatGPTUrl);
+    console.log("openChatGPTWithClipboard: ChatGPT opened. User can paste final text.");
+    app.displaySuccessMessage("Context copied. ChatGPT opened—paste it there as needed.");
+  } catch (err) {
+    console.error("openChatGPTWithClipboard: Error merging or opening ChatGPT:", err);
+    failAction("Error merging or opening ChatGPT", err);
+  }
+}
+
+// src/Actions/TodoistActions/ComposeChatGPTPromptAction.ts
+async function runComposeChatGPTPrompt(todoist, taskId, selectedText) {
+  try {
+    console.log("composeChatPrompt: Starting method...");
+    let task;
+    try {
+      task = todoist.getTask(taskId);
+      console.log("composeChatPrompt: Retrieved task:", JSON.stringify(task));
+    } catch (innerErr) {
+      console.error("composeChatPrompt: Could not retrieve task details:", innerErr);
+    }
+    const title = task && task.content ? task.content : "No Title";
+    const description = task && task.description ? task.description : "";
+    let comments = [];
+    let lastComment = "";
+    try {
+      comments = todoist.getComments({ task_id: taskId }) || [];
+      if (comments.length > 0) {
+        lastComment = comments[comments.length - 1].content;
+      }
+    } catch (innerErr2) {
+      console.error("composeChatPrompt: Could not retrieve comments:", innerErr2);
+    }
+    console.log("composeChatPrompt: title =", title);
+    console.log("composeChatPrompt: description =", description);
+    console.log("composeChatPrompt: lastComment =", lastComment);
+    const contextPrompt = new Prompt;
+    contextPrompt.title = "Select Task Context Details";
+    contextPrompt.message = "Choose which parts of the task context you want to include when building your final ChatGPT content.";
+    contextPrompt.addSwitch("includeTitle", "Include Title", true);
+    contextPrompt.addSwitch("includeDesc", "Include Description", true);
+    contextPrompt.addSwitch("includeLast", "Include Last Comment", true);
+    contextPrompt.addSwitch("includeAllComments", "Include ALL Comments", false);
+    contextPrompt.addButton("OK", undefined, true);
+    contextPrompt.addButton("Cancel");
+    const didContextShow = contextPrompt.show();
+    if (!didContextShow || contextPrompt.buttonPressed === "Cancel") {
+      console.log("User cancelled context selection. Exiting composeChatPrompt.");
+      return;
+    }
+    const optTitle = contextPrompt.fieldValues["includeTitle"];
+    const optDesc = contextPrompt.fieldValues["includeDesc"];
+    const optLast = contextPrompt.fieldValues["includeLast"];
+    const optAll = contextPrompt.fieldValues["includeAllComments"];
+    console.log("composeChatPrompt: Context selection:", {
+      optTitle,
+      optDesc,
+      optLast,
+      optAll
+    });
+    let userText = selectedText || "";
+    console.log("composeChatPrompt: initial userText length =", userText.length);
+    while (true) {
+      console.log("composeChatPrompt: Displaying prompt for user text...");
+      const prompt = new Prompt;
+      prompt.title = "Compose ChatGPT Prompt";
+      prompt.message = "Refine your text. Task details shown below.";
+      prompt.addLabel("titleLabel", `**Task Title**: ${title}`, {
+        textSize: "headline"
+      });
+      if (description.trim().length > 0) {
+        prompt.addLabel("descLabel", `**Description**: ${description}`);
+      }
+      if (lastComment.trim().length > 0) {
+        prompt.addLabel("commentLabel", `**Latest Comment**: ${lastComment}`);
+      }
+      prompt.addTextView("userPrompt", "Your Prompt", userText, {
+        height: 120,
+        wantsFocus: true
+      });
+      prompt.addButton("Refine with AI");
+      prompt.addButton("Open ChatGPT Now");
+      prompt.addButton("OK", undefined, true);
+      prompt.addButton("Cancel");
+      const didShow = prompt.show();
+      console.log("composeChatPrompt: Prompt closed. buttonPressed =", prompt.buttonPressed);
+      if (!didShow || prompt.buttonPressed === "Cancel") {
+        console.log("User canceled Compose ChatGPT Prompt.");
+        return;
+      }
+      userText = prompt.fieldValues["userPrompt"] || "";
+      console.log("composeChatPrompt: Updated userText length =", userText.length);
+      if (prompt.buttonPressed === "Refine with AI") {
+        console.log("composeChatPrompt: User chose to refine with AI.");
+        try {
+          const ai = OpenAI.create();
+          ai.model = "gpt-4o-mini";
+          const refinePrompt = `Please refine the following text:
+
+"${userText}"`;
+          const refined = await ai.quickChatResponse(refinePrompt);
+          console.log("composeChatPrompt: AI refine response received. length =", (refined || "").length);
+          if (refined && refined.trim() !== "") {
+            userText = refined.trim();
+            console.log("composeChatPrompt: Updated userText after refinement.");
+          } else {
+            console.warn("No refined text returned by AI.");
+            app.displayErrorMessage("No refined text returned.");
+          }
+        } catch (refineErr) {
+          console.error("composeChatPrompt: Error during AI refinement:", refineErr);
+          failAction("Error during AI refinement:", refineErr);
+        }
+      } else if (prompt.buttonPressed === "Open ChatGPT Now") {
+        console.log("composeChatPrompt: User chose to open ChatGPT with current refined text.");
+        let contextLines = [];
+        contextLines.push(`Refined Prompt:
+` + userText);
+        contextLines.push(`
+---
+
+Task Context:
+`);
+        if (optTitle && title.trim().length > 0) {
+          contextLines.push("Title: " + title);
+        }
+        if (optDesc && description.trim().length > 0) {
+          contextLines.push("Description: " + description);
+        }
+        if (optAll) {
+          let allCommentText = "";
+          if (comments && comments.length > 0) {
+            for (let c of comments) {
+              allCommentText += "- " + c.content + `
+`;
+            }
+          } else {
+            allCommentText = "(No Comments)";
+          }
+          contextLines.push(`All Comments:
+` + allCommentText.trim());
+        } else if (optLast && lastComment.trim().length > 0) {
+          contextLines.push("Last Comment: " + lastComment);
+        }
+        const combinedForClipboard = contextLines.join(`
+`);
+        runOpenChatGPTClipboard(combinedForClipboard);
+      } else if (prompt.buttonPressed === "OK") {
+        console.log("composeChatPrompt: User is satisfied with the prompt. Exiting loop.");
+        break;
+      }
+    }
+    let finalContextLines = [];
+    finalContextLines.push(userText);
+    finalContextLines.push(`
+---
+
+Task Context:
+`);
+    if (optTitle && title.trim().length > 0) {
+      finalContextLines.push("Task Title: " + title);
+    }
+    if (optDesc && description.trim().length > 0) {
+      finalContextLines.push("Description: " + description);
+    }
+    if (optAll) {
+      let allCommentText = "";
+      if (comments && comments.length > 0) {
+        for (let c of comments) {
+          allCommentText += "- " + c.content + `
+`;
+        }
+      } else {
+        allCommentText = "(No Comments)";
+      }
+      finalContextLines.push(`All Comments:
+` + allCommentText.trim());
+    } else if (optLast && lastComment.trim().length > 0) {
+      finalContextLines.push("Last Comment: " + lastComment);
+    }
+    const finalContent = finalContextLines.join(`
+`);
+    console.log("composeChatPrompt: finalContent length =", finalContent.length);
+    app.setClipboard(finalContent);
+    app.displaySuccessMessage("Final prompt copied to clipboard.");
+    console.log("composeChatPrompt: Opening ChatGPT without injection...");
+    let chatGPTUrl = device.systemName === "iOS" ? "googlechrome://chat.openai.com/chat" : "https://chat.openai.com/chat";
+    app.openURL(chatGPTUrl);
+    console.log("ChatGPT opened in browser/scheme. Clipboard has final content.");
+  } catch (err) {
+    console.error("Error in composeChatPrompt:", err);
+    failAction("Error during prompt composition.", err);
+  }
+}
+
+// src/Actions/TodoistActions/ExportToNewDraftAction.ts
+async function runExportToNewDraft(todoist, taskId) {
+  try {
+    console.log("Exporting Todoist task to new draft...");
+    const task = todoist.getTask(taskId);
+    const comments = todoist.getComments({ task_id: taskId });
+    let content = `# ${task.content}
+
+`;
+    if (task.description) {
+      content += `${task.description}
+
+`;
+    }
+    content += `## Task Metadata
+`;
+    content += `- Original Task ID: ${task.id}
+`;
+    if (task.createdAt) {
+      content += `- Created: ${new Date(task.createdAt).toLocaleString()}
+`;
+    }
+    if (task.due) {
+      content += `- Due: ${new Date(task.due.date).toLocaleString()}
+`;
+    }
+    if (task.priority && task.priority !== 1) {
+      content += `- Priority: ${task.priority}
+`;
+    }
+    if (comments && comments.length > 0) {
+      content += `
+## Comments
+
+`;
+      content += comments.map((c) => {
+        const timestamp = new Date(c.postedAt).toLocaleString();
+        return `#### ${timestamp}
+
+${c.content}`;
+      }).join(`
+
+---
+
+`);
+    }
+    const newDraft = Draft.create();
+    newDraft.content = content;
+    newDraft.addTag("archived-task");
+    newDraft.update();
+    app.displaySuccessMessage("Task exported to new draft successfully.");
+    return true;
+  } catch (error) {
+    console.error("Error exporting task to draft:", error);
+    quickAlert("Failed to export task to draft", String(error), true);
+    return false;
+  }
+}
+
+// src/Actions/TodoistActions/ExportAndDeleteAction.ts
+async function runExportAndDelete(todoist, taskId) {
+  try {
+    const exported = await runExportToNewDraft(todoist, taskId);
+    if (exported) {
+      const deleted = runDeleteTask(todoist, taskId);
+      if (deleted) {
+        app.displaySuccessMessage("Task exported and deleted successfully.");
+        return true;
+      }
+    }
+    return false;
+  } catch (error) {
+    console.error("Error in exportAndDelete:", error);
+    failAction("Failed to export and delete task.", error);
+    return false;
+  }
+}
+
+// src/Actions/TodoistActions/StartSessionForEvanAction.ts
+async function runStartSessionForEvan(todoist, taskId) {
+  try {
+    console.log("Starting session for Evan...");
+    const task = todoist.getTask(taskId);
+    if (!task) {
+      quickAlert("Failed to retrieve task details.", "Task is undefined", true);
+      return;
+    }
+    const duration = 25;
+    const comments = todoist.getComments({
+      task_id: taskId
+    });
+    let lastComment = "";
+    if (comments && comments.length > 0) {
+      lastComment = comments[comments.length - 1].content;
+    }
+    const title = task.content || "No Title";
+    const description = task.description || "No Description";
+    const allComments = comments.map((c) => c.content).join(`
+
+---
+
+`) || "No Comments";
+    const notes = `${lastComment}
+
+---
+
+${title}
+
+${description}
+
+---
+
+${allComments}`;
+    const createThreadPrompt = new Prompt;
+    createThreadPrompt.title = "Open ChatGPT?";
+    createThreadPrompt.message = "Do you want to open ChatGPT to brainstorm or discuss this task?";
+    createThreadPrompt.addButton("Yes");
+    createThreadPrompt.addButton("No");
+    const threadResult = createThreadPrompt.show();
+    if (threadResult && createThreadPrompt.buttonPressed === "Yes") {
+      app.setClipboard(notes);
+      const chatGPTUrl = device.systemName === "iOS" ? "googlechrome://chat.openai.com/chat" : "https://chat.openai.com/chat";
+      app.openURL(chatGPTUrl);
+      app.displaySuccessMessage("Context copied. ChatGPT opened—paste it once you're there.");
+    }
+    const encodedIntent = encodeURIComponent(title);
+    const encodedNotes = encodeURIComponent(notes);
+    let sessionURL = `session:///start?intent=${encodedIntent}&duration=${duration}&notes=${encodedNotes}`;
+    console.log(`Opening Session URL: ${sessionURL}`);
+    app.openURL(sessionURL);
+    app.displaySuccessMessage("Session started for Evan.");
+  } catch (error) {
+    console.error("Error in runStartSessionForEvan:", error);
+    failAction("Failed to start session.", error);
+  }
+}
+
 // src/Actions/SourceIntegration/TodoistTask.ts
 class TodoistTask extends SourceItem {
   taskId;
@@ -757,6 +1209,14 @@ class TodoistTask extends SourceItem {
       p.message = "What would you like to do?";
       p.addButton("Open in Browser");
       p.addButton("Export All Information");
+      p.addButton("Open in Browser");
+      p.addButton("Export All Information");
+      p.addButton("Add or Edit Comment");
+      p.addButton("Export to New Draft");
+      p.addButton("Export and Delete");
+      p.addButton("Open ChatGPT (Clipboard)");
+      p.addButton("Compose ChatGPT Prompt");
+      p.addButton("Start Session for Evan");
       p.addButton("Delete Task");
       p.addButton("Cancel");
       const result2 = p.show();
@@ -774,6 +1234,39 @@ class TodoistTask extends SourceItem {
           runExportAllInformation(this.todoist, this.taskId);
           break;
         }
+        case "Add or Edit Comment":
+          await runAddOrEditComment(this.todoist, this.taskId, this.selectedText);
+          break;
+        case "Export to New Draft":
+          await runExportToNewDraft(this.todoist, this.taskId);
+          break;
+        case "Export and Delete":
+          {
+            const exportDeletePrompt = new Prompt;
+            exportDeletePrompt.title = "Confirm Export and Delete";
+            exportDeletePrompt.message = "This will export the task to a new draft and then delete it. Continue?";
+            exportDeletePrompt.addButton("Yes");
+            exportDeletePrompt.addButton("Cancel");
+            if (exportDeletePrompt.show() && exportDeletePrompt.buttonPressed === "Yes") {
+              await runExportAndDelete(this.todoist, this.taskId);
+            }
+          }
+          break;
+        case "Open ChatGPT (Clipboard)":
+          {
+            const fullContext = runExportAllInformation(this.todoist, this.taskId);
+            if (fullContext) {
+              runOpenChatGPTClipboard(fullContext);
+            }
+          }
+          break;
+        case "Compose ChatGPT Prompt":
+          await runComposeChatGPTPrompt(this.todoist, this.taskId, this.selectedText);
+          break;
+        case "Start Session for Evan":
+          await runStartSessionForEvan(this.todoist, this.taskId);
+          break;
+        case "Delete Task":
         case "Delete Task":
           {
             const deletePrompt = new Prompt;

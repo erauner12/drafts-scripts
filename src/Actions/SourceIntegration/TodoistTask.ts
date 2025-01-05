@@ -6,6 +6,13 @@ import { SourceItem } from "./SourceItem";
 import { runDeleteTask } from "../TodoistActions/DeleteTaskAction";
 import { runExportAllInformation } from "../TodoistActions/ExportAllInformationAction";
 import { runOpenInBrowser } from "../TodoistActions/OpenInBrowserAction";
+
+import { runAddOrEditComment } from "../TodoistActions/AddOrEditCommentAction";
+import { runComposeChatGPTPrompt } from "../TodoistActions/ComposeChatGPTPromptAction";
+import { runExportAndDelete } from "../TodoistActions/ExportAndDeleteAction";
+import { runExportToNewDraft } from "../TodoistActions/ExportToNewDraftAction";
+import { runOpenChatGPTClipboard } from "../TodoistActions/OpenChatGPTClipboardAction";
+import { runStartSessionForEvan } from "../TodoistActions/StartSessionForEvanAction";
 // ... similarly import others like runAddOrEditComment, runExportToNewDraft, etc.
 
 declare var app: App;
@@ -37,8 +44,14 @@ export class TodoistTask extends SourceItem {
       // p.addButton("Export to New Draft");
       // p.addButton("Export and Delete");
       // p.addButton("Open ChatGPT (Clipboard)");
-      // p.addButton("Compose ChatGPT Prompt");
-      // p.addButton("Start Session for Evan");
+      p.addButton("Open in Browser");
+      p.addButton("Export All Information");
+      p.addButton("Add or Edit Comment");
+      p.addButton("Export to New Draft");
+      p.addButton("Export and Delete");
+      p.addButton("Open ChatGPT (Clipboard)");
+      p.addButton("Compose ChatGPT Prompt");
+      p.addButton("Start Session for Evan");
       p.addButton("Delete Task");
       p.addButton("Cancel");
 
@@ -57,7 +70,6 @@ export class TodoistTask extends SourceItem {
 
       switch (p.buttonPressed) {
         case "Open in Browser":
-          // Now a separate function:
           runOpenInBrowser(this.taskId);
           break;
 
@@ -66,6 +78,61 @@ export class TodoistTask extends SourceItem {
           break;
         }
 
+        case "Add or Edit Comment":
+          await runAddOrEditComment(
+            this.todoist,
+            this.taskId,
+            this.selectedText
+          );
+          break;
+
+        case "Export to New Draft":
+          await runExportToNewDraft(this.todoist, this.taskId);
+          break;
+
+        case "Export and Delete":
+          {
+            const exportDeletePrompt = new Prompt();
+            exportDeletePrompt.title = "Confirm Export and Delete";
+            exportDeletePrompt.message =
+              "This will export the task to a new draft and then delete it. Continue?";
+            exportDeletePrompt.addButton("Yes");
+            exportDeletePrompt.addButton("Cancel");
+
+            if (
+              exportDeletePrompt.show() &&
+              exportDeletePrompt.buttonPressed === "Yes"
+            ) {
+              await runExportAndDelete(this.todoist, this.taskId);
+            }
+          }
+          break;
+
+        case "Open ChatGPT (Clipboard)":
+          {
+            const fullContext = runExportAllInformation(
+              this.todoist,
+              this.taskId
+            );
+            if (fullContext) {
+              runOpenChatGPTClipboard(fullContext);
+            }
+          }
+          break;
+
+        case "Compose ChatGPT Prompt":
+          await runComposeChatGPTPrompt(
+            this.todoist,
+            this.taskId,
+            this.selectedText
+          );
+          break;
+
+        case "Start Session for Evan":
+          await runStartSessionForEvan(this.todoist, this.taskId);
+          break;
+
+        case "Delete Task":
         // Additional actions would call out to their separate functions:
         // case "Add or Edit Comment":
         //   runAddOrEditComment(this.todoist, this.taskId, this.selectedText);
