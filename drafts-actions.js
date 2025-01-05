@@ -726,7 +726,7 @@ You will need this shortcut on iOS.`;
           end execute
         `;
         const objAS = AppleScript.create(scriptMac);
-        if (objAS.execute("execute", [{ toString: () => totID.toString() }]) && objAS.lastResult) {
+        if (objAS.execute("execute", [totID]) && objAS.lastResult) {
           return objAS.lastResult.toString();
         } else {
           console.log(objAS.lastError);
