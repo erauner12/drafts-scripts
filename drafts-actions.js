@@ -3096,6 +3096,163 @@ function toGoogleCalendarURL(event) {
   const url = `https://calendar.google.com/calendar/render` + `?action=TEMPLATE` + `&text=${textParam}` + `&dates=${datesParam}` + `&details=${detailsParam}` + `&location=${locationParam}` + `&trp=false`;
   return url;
 }
+// src/Actions/TOTIntegration/TOTIntegration.ts
+async function runTOTIntegration() {
+  try {
+    let getTotMobile = function(totID, shortcutName, shortcutUrl) {
+      const cb = CallbackURL.create();
+      cb.baseURL = "shortcuts://run-shortcut";
+      cb.addParameter("name", shortcutName);
+      cb.addParameter("input", totID.toString());
+      const objResult = {};
+      if (cb.open()) {
+        objResult.content = cb.callbackResponse.result || "";
+      }
+      objResult.status = cb.status;
+      if (objResult.status === "error") {
+        const BUTTON_TEXT = "Get Shortcut";
+        const promptSC = new Prompt;
+        promptSC.title = "Shortcut Not Available";
+        promptSC.message = `The '${shortcutName}' shortcut was not found.
+You will need this shortcut on iOS.`;
+        promptSC.addButton(BUTTON_TEXT);
+        promptSC.isCancellable = true;
+        const didShow = promptSC.show();
+        if (didShow && promptSC.buttonPressed === BUTTON_TEXT) {
+          app.openURL(shortcutUrl, false);
+        }
+        return false;
+      } else if (objResult.status === "success") {
+        if (objResult.content === undefined) {
+          alert("ERROR: Invalid response from Tot Shortcut.");
+          return false;
+        } else {
+          draft.setTemplateTag("tot_content", objResult.content);
+          return true;
+        }
+      }
+      return false;
+    }, getTotContent = function(totID) {
+      if (device.systemName === "macOS") {
+        const scriptMac = `
+          on execute()
+            -- Return the text of Tot #${totID}
+            tell application "Tot" to return content of document ${totID}
+          end execute
+        `;
+        const objAS = AppleScript.create(scriptMac);
+        if (objAS.execute("execute", []) && objAS.lastResult) {
+          return objAS.lastResult.toString();
+        } else {
+          console.log(objAS.lastError);
+          return "";
+        }
+      } else {
+        const scName = "Get Tot Content";
+        const scUrl = "https://www.icloud.com/shortcuts/457cc01f6460436c81e15981fbf57bbf";
+        const success = getTotMobile(totID, scName, scUrl);
+        if (!success) {
+          return "";
+        }
+        const fetched = draft.processTemplate("[[tot_content]]");
+        return fetched || "";
+      }
+    };
+    const totPrompt = new Prompt;
+    totPrompt.title = "Pick a Tot (1–7)";
+    totPrompt.message = "Which Tot would you like to manage?";
+    totPrompt.isCancellable = true;
+    for (let i = 1;i <= 7; i++) {
+      totPrompt.addButton(`Tot #${i}`);
+    }
+    if (!totPrompt.show()) {
+      context.cancel("Canceled picking a Tot.");
+      script.complete();
+      return;
+    }
+    const chosenLabel = totPrompt.buttonPressed;
+    const chosenID = parseInt(chosenLabel.replace("Tot #", ""), 10);
+    const oldContent = getTotContent(chosenID) || "";
+    const previewLine = (oldContent.trim().split(`
+`)[0] || "[empty]").trim();
+    const actionPrompt = new Prompt;
+    actionPrompt.title = `Manage Tot #${chosenID}`;
+    actionPrompt.message = `Currently, Tot #${chosenID} begins with:
+
+“${previewLine}”
+
+What would you like to do?`;
+    actionPrompt.isCancellable = true;
+    actionPrompt.addButton("Open");
+    actionPrompt.addButton("Append");
+    actionPrompt.addButton("Replace");
+    if (!actionPrompt.show()) {
+      context.cancel("Canceled picking action.");
+      script.complete();
+      return;
+    }
+    const chosenAction = actionPrompt.buttonPressed;
+    if (!chosenAction) {
+      context.cancel("No action chosen.");
+      script.complete();
+      return;
+    }
+    if (chosenAction === "Open") {
+      app.openURL(`tot://${chosenID}`);
+      context.cancel("User opened TOT.");
+      script.complete();
+      return;
+    }
+    if (oldContent.trim().length === 0) {
+      alert(`Tot #${chosenID} is currently empty.`);
+    } else {
+      const showPrompt = new Prompt;
+      showPrompt.title = `Preview of Tot #${chosenID}`;
+      showPrompt.message = `--- BEGIN CONTENT ---
+${oldContent}
+--- END CONTENT ---
+
+You are about to ${chosenAction} this Tot. Are you sure?`;
+      showPrompt.addButton("OK");
+      showPrompt.addButton("Cancel");
+      showPrompt.isCancellable = true;
+      const didShow = showPrompt.show();
+      if (!didShow || showPrompt.buttonPressed === "Cancel") {
+        context.cancel("User canceled after preview.");
+        script.complete();
+        return;
+      }
+    }
+    const newDraftText = draft.content.trim();
+    const draftLink = draft.permalink;
+    const draftTitle = draft.displayTitle.trim();
+    const newPart = `${newDraftText}
+
+---
+${draftTitle}
+${draftLink}`;
+    let finalContent = "";
+    if (chosenAction === "Append") {
+      finalContent = oldContent.trim();
+      if (finalContent.length > 0) {
+        finalContent += `
+
+`;
+      }
+      finalContent += newPart;
+    } else if (chosenAction === "Replace") {
+      finalContent = newPart;
+    }
+    const totReplaceURL = `tot://${chosenID}/replace?text=${encodeURIComponent(finalContent)}`;
+    app.openURL(totReplaceURL);
+    context.cancel("All done! Tot updated.");
+    script.complete();
+  } catch (error) {
+    console.error("[TOTIntegration] Unexpected error:", error);
+    app.displayErrorMessage("Error running TOT Integration.");
+    context.fail("TOTIntegration error");
+  }
+}
 
 // src/index.ts
 class FallbackSourceItem extends SourceItem {
