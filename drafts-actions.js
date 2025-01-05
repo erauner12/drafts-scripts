@@ -3033,7 +3033,7 @@ ${allComments}`;
   }
 }
 
-// src/Actions/SourceIntegration/index.ts
+// src/index.ts
 async function runSourceIntegration2() {
   try {
     console.log("SourceIntegration: script started.");
