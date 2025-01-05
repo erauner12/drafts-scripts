@@ -1,73 +1,75 @@
-// export {
-//   copyLineDown,
-//   copyLineToClipboard,
-//   copyLineUp,
-//   cutLine,
-//   deleteLine,
-// } from "./actions-editing-copycutdelete";
+export {
+  copyLineDown,
+  copyLineToClipboard,
+  copyLineUp,
+  cutLine,
+  deleteLine,
+} from "./actions-editing-copycutdelete";
 
-// export {
-//   selectAll,
-//   selectLine,
-//   selectParagraph,
-//   selectResponse,
-// } from "./actions-editing-selection";
+export {
+  selectAll,
+  selectLine,
+  selectParagraph,
+  selectResponse,
+} from "./actions-editing-selection";
 
-// export { insertDictation, pasteClipboard } from "./actions-editing-utils";
+export { insertDictation, pasteClipboard } from "./actions-editing-utils";
 
-// export {
-//   jumpToNextHeader,
-//   jumpToPreviousHeader,
-//   moveCursorLeft,
-//   moveCursorRight,
-// } from "./actions-navigation";
+export {
+  jumpToNextHeader,
+  jumpToPreviousHeader,
+  moveCursorLeft,
+  moveCursorRight,
+} from "./actions-navigation";
 
-// export {
-//   highlightBold,
-//   highlightCode,
-//   highlightCodeBlock,
-//   highlightItalic,
-// } from "./actions-markdown-highlighting";
+export {
+  highlightBold,
+  highlightCode,
+  highlightCodeBlock,
+  highlightItalic,
+} from "./actions-markdown-highlighting";
 
-// export {
-//   insertMarkdownImage,
-//   insertMarkdownLink,
-// } from "./actions-markdown-links";
+export {
+  insertMarkdownImage,
+  insertMarkdownLink,
+} from "./actions-markdown-links";
 
-// export { linebreakKeepIndentation as linebreakWithinList } from "./actions-markdown-lists";
+export { linebreakKeepIndentation as linebreakWithinList } from "./actions-markdown-lists";
 
-// export {
-//   toggleMarkdownCheckboxes,
-//   toggleMarkdownTasks,
-// } from "./actions-markdown-tasks";
+export {
+  toggleMarkdownCheckboxes,
+  toggleMarkdownTasks,
+} from "./actions-markdown-tasks";
 
-// export {
-//   capitalize,
-//   removeExtraWhitespace,
-//   removeWhitespace,
-//   replaceWhitespace,
-//   sortLines,
-//   toCamelCase,
-//   toHyphenCase,
-//   toLowerCaseCustom,
-//   toMemeCase,
-//   toPascalCase,
-//   toSnakeCase,
-//   toTitleCase,
-//   toUpperCaseCustom,
-//   trimWhitespace,
-// } from "./actions-transform-case";
+export {
+  capitalize,
+  removeExtraWhitespace,
+  removeWhitespace,
+  replaceWhitespace,
+  sortLines,
+  toCamelCase,
+  toHyphenCase,
+  toLowerCaseCustom,
+  toMemeCase,
+  toPascalCase,
+  toSnakeCase,
+  toTitleCase,
+  toUpperCaseCustom,
+  trimWhitespace,
+} from "./actions-transform-case";
 
-// export {
-//   evaluateMathExpression,
-//   max,
-//   mean,
-//   min,
-//   product,
-//   sum,
-// } from "./actions-transform-math";
+export {
+  evaluateMathExpression,
+  max,
+  mean,
+  min,
+  product,
+  sum,
+} from "./actions-transform-math";
 
-// export { copyAllTagsToClipboard } from "./actions-shortcuts";
+export { copyAllTagsToClipboard } from "./actions-shortcuts";
+
+
 
 export { runTodoistEnhancedMenu } from "./Actions/TaskActions/TodoistEnhancedMenu";
 
@@ -76,6 +78,7 @@ export {
   executeSelectedTasksStep,
   selectTasksStep,
 } from "./Actions/TaskActions/TodoistFlexibleFlow";
+
 
 /**
  * Re-export date/time prompt utility functions:
@@ -117,5 +120,6 @@ export { runAiTextToCalendar } from "./Actions/AiTextToCalendar";
 // } from "./ExampleUsingLodash";
 // export { exampleUsingMyLegacyLib } from "./ExampleUsingMyLegacyLib";
 // export { runPlainJsExample } from "./ExampleUsingPlainJs";
+
 
 export { runSourceIntegration } from "./Actions/SourceIntegration/index";
