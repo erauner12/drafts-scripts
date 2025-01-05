@@ -1,3 +1,4 @@
+import { runTOTIntegration } from "../TOTIntegration/TOTIntegration";
 import { SourceItem } from "./SourceItem";
 
 /**
@@ -13,13 +14,21 @@ export interface ActionItem {
 }
 
 /**
+ * runTOTIntegrationAction
+ * Simple wrapper to call TOTIntegration from the SourceActionRegistry items.
+ */
+function runTOTIntegrationAction(_item: SourceItem) {
+  console.log("[SourceActionRegistry] Running TOT Integration now...");
+  runTOTIntegration();
+}
+
+/**
  * Sample universal or fallback actions:
  * They might do something generic like "No Specific Source Found" or other utilities.
  */
 function runNoSourceFound(_item: SourceItem) {
   console.log("[Fallback Action] No specific source found for this item.");
   app.displayInfoMessage("No specific source found. Running fallback action.");
-  // You could do something else here...
 }
 
 // Example fallback action #2
@@ -38,6 +47,10 @@ export const fallbackActions: ActionItem[] = [
     label: "Generic Fallback Action",
     run: runGenericAction,
   },
+  {
+    label: "Manage TOT",
+    run: runTOTIntegrationAction,
+  },
 ];
 
 /**
@@ -49,17 +62,15 @@ function runOpenInBrowserForTodoist(item: SourceItem) {
   console.log("[Todoist Action] Running open in browser for a todoist item...");
   // We can cast item to TodoistTask if needed, or call item methods:
   // (item as TodoistTask).someMethod();
-  item.appendAIResultToDraft("Pretend we do something here for browser open...");
+  item.appendAIResultToDraft(
+    "Pretend we do something here for browser open..."
+  );
 }
 
 function runExportAllForTodoist(item: SourceItem) {
   console.log("[Todoist Action] Exporting info from a todoist item...");
   item.appendAIResultToDraft("Pretend we do a full export of the item...");
 }
-
-/**
- * Similarly, you could define JIRA actions, GitHub actions, etc.
- */
 
 // Example minimal JIRA actions
 function runOpenInBrowserForJira(item: SourceItem) {
@@ -82,6 +93,10 @@ export const SourceActionRegistry: Record<string, ActionItem[]> = {
     {
       label: "Export All (Todoist)",
       run: runExportAllForTodoist,
+    },
+    {
+      label: "Manage TOT",
+      run: runTOTIntegrationAction,
     },
   ],
 
