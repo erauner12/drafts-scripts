@@ -676,6 +676,57 @@ Draft: ${draftLink}`;
   }
 }
 
+// src/Actions/SourceIntegration/SourceActionRegistry.ts
+function runNoSourceFound(_item) {
+  console.log("[Fallback Action] No specific source found for this item.");
+  app.displayInfoMessage("No specific source found. Running fallback action.");
+}
+function runGenericAction(_item) {
+  console.log("[Fallback Action] Some generic fallback behavior.");
+  app.displayInfoMessage("Doing something generic for any draft/source.");
+}
+var fallbackActions = [
+  {
+    label: "No Specific Source Found",
+    run: runNoSourceFound
+  },
+  {
+    label: "Generic Fallback Action",
+    run: runGenericAction
+  }
+];
+function runOpenInBrowserForTodoist(item) {
+  console.log("[Todoist Action] Running open in browser for a todoist item...");
+  item.appendAIResultToDraft("Pretend we do something here for browser open...");
+}
+function runExportAllForTodoist(item) {
+  console.log("[Todoist Action] Exporting info from a todoist item...");
+  item.appendAIResultToDraft("Pretend we do a full export of the item...");
+}
+function runOpenInBrowserForJira(item) {
+  console.log("[JIRA Action] Opening a JIRA issue in browser...");
+  item.appendAIResultToDraft("Pretend we do JIRA stuff here...");
+}
+var SourceActionRegistry = {
+  todoist: [
+    {
+      label: "Open in Browser (Todoist)",
+      run: runOpenInBrowserForTodoist
+    },
+    {
+      label: "Export All (Todoist)",
+      run: runExportAllForTodoist
+    }
+  ],
+  jira: [
+    {
+      label: "Open in Browser (JIRA)",
+      run: runOpenInBrowserForJira
+    }
+  ],
+  fallback: fallbackActions
+};
+
 // src/Actions/TodoistActions/DeleteTaskAction.ts
 function runDeleteTask(todoist, taskId) {
   try {
@@ -3047,6 +3098,12 @@ function toGoogleCalendarURL(event) {
 }
 
 // src/index.ts
+class FallbackSourceItem extends SourceItem {
+  async performAction() {
+    console.log("[FallbackSourceItem] No recognized source type. Nothing to do.");
+    app.displayInfoMessage("Fallback: no recognized source item found.");
+  }
+}
 async function runSourceIntegration2() {
   try {
     console.log("SourceIntegration: script started.");
@@ -3056,8 +3113,8 @@ async function runSourceIntegration2() {
       const range = editor.getSelectedLineRange();
       selectedText = editor.getTextInRange(range[0], range[1]);
     }
-    console.log("Draft title:", title);
-    console.log("Selected text length:", selectedText ? selectedText.length : 0);
+    console.log(`[SourceIntegration] Draft title: "${title}"`);
+    console.log(`[SourceIntegration] Selected text length: ${selectedText ? selectedText.length : 0}`);
     const taskInfo = {
       sourceType: null,
       identifier: null
@@ -3083,7 +3140,7 @@ async function runSourceIntegration2() {
       taskInfo.identifier = match ? match[1] : null;
       console.log("Source type identified as Jira:", taskInfo.identifier);
     } else {
-      console.log("Draft title does not match known patterns. Attempting GitHub...");
+      console.log("[SourceIntegration] No recognized pattern for Todoist/Jira. Checking GitHub pattern...");
       const ghPattern = /^(ghissue|ghpr|ghgist)_(.*)$/;
       const ghMatch = ghPattern.exec(title);
       if (ghMatch) {
@@ -3099,38 +3156,60 @@ async function runSourceIntegration2() {
         console.log(`Source type identified as GitHub: itemType=${taskInfo.itemType}, identifier=${taskInfo.identifier}`);
       }
     }
-    if (!taskInfo.sourceType || !taskInfo.identifier) {
-      app.displayWarningMessage("This draft is not linked to a recognized task/issue.");
-      cancelAction("No recognized patterns found");
-      return;
+    if (!taskInfo.sourceType) {
+      console.log("[SourceIntegration] No recognized source type. We'll fallback.");
+    } else {
+      console.log("[SourceIntegration] Detected sourceType:", taskInfo.sourceType);
     }
     let sourceItem;
-    switch (taskInfo.sourceType) {
-      case "todoist":
-        sourceItem = new TodoistTask(draft, selectedText, taskInfo.identifier);
-        break;
-      case "jira":
-        sourceItem = new JiraIssue(draft, selectedText, taskInfo.identifier);
-        break;
-      case "github":
-        if (taskInfo.itemType) {
-          sourceItem = new GitHubItem(draft, selectedText, taskInfo.identifier, taskInfo.itemType);
-        }
-        break;
-      default:
-        console.log("Unknown source type.");
-        app.displayWarningMessage("Unable to process the draft.");
-        cancelAction("No recognized patterns found");
-        return;
-    }
-    if (sourceItem) {
-      console.log("Performing action for source item of type:", taskInfo.sourceType);
-      await sourceItem.performAction();
+    if (taskInfo.sourceType && taskInfo.identifier) {
+      switch (taskInfo.sourceType) {
+        case "todoist":
+          sourceItem = new TodoistTask(draft, selectedText, taskInfo.identifier);
+          break;
+        case "jira":
+          sourceItem = new JiraIssue(draft, selectedText, taskInfo.identifier);
+          break;
+        case "github":
+          if (taskInfo.itemType) {
+            sourceItem = new GitHubItem(draft, selectedText, taskInfo.identifier, taskInfo.itemType);
+          } else {
+            sourceItem = new FallbackSourceItem(draft, selectedText);
+          }
+          break;
+        default:
+          sourceItem = new FallbackSourceItem(draft, selectedText);
+          break;
+      }
     } else {
-      console.log("Source item is undefined (missing itemType?).");
-      app.displayWarningMessage("Unable to process the draft.");
-      cancelAction("User canceled the prompt");
+      sourceItem = new FallbackSourceItem(draft, selectedText);
     }
+    let actionsToShow = taskInfo.sourceType && SourceActionRegistry[taskInfo.sourceType] ? SourceActionRegistry[taskInfo.sourceType] : [];
+    if (!actionsToShow || actionsToShow.length === 0) {
+      console.log("[SourceIntegration] Using fallback actions from registry.");
+      actionsToShow = SourceActionRegistry.fallback;
+    }
+    const p = new Prompt;
+    p.title = "Available Actions";
+    for (const item of actionsToShow) {
+      p.addButton(item.label);
+    }
+    p.addButton("Cancel");
+    const didShow = p.show();
+    if (!didShow || p.buttonPressed === "Cancel") {
+      console.log("[SourceIntegration] User canceled the actions prompt.");
+      cancelAction("User canceled the prompt");
+      return;
+    }
+    const chosenLabel = p.buttonPressed;
+    const chosenAction = actionsToShow.find((a) => a.label === chosenLabel);
+    if (!chosenAction) {
+      console.log("[SourceIntegration] No matching action found. Exiting.");
+      cancelAction("No recognized action from prompt");
+      return;
+    }
+    console.log("[SourceIntegration] Running chosen action:", chosenLabel);
+    await chosenAction.run(sourceItem);
   } catch (error) {
     console.error("Error in runSourceIntegration main script:", error);
     app.displayErrorMessage("An unexpected error occurred.");

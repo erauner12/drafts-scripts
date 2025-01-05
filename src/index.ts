@@ -2,19 +2,33 @@
  * Index.ts
  * Combine all your re-exports and definitions here.
  */
-
-// Step 1: Define runSourceIntegration near the top without `export`:
 import { GitHubItem } from "./Actions/SourceIntegration/GitHubItem";
 import { JiraIssue } from "./Actions/SourceIntegration/JiraIssue";
+import { SourceActionRegistry } from "./Actions/SourceIntegration/SourceActionRegistry";
 import { SourceItem } from "./Actions/SourceIntegration/SourceItem";
 import { TodoistTask } from "./Actions/SourceIntegration/TodoistTask";
-import { SourceActionRegistry } from "./Actions/SourceIntegration/SourceActionRegistry";
 import { cancelAction } from "./helpers/CommonFlowUtils";
+
+
+
 
 declare var app: App;
 declare var editor: Editor;
 declare var draft: Draft;
 declare var script: Script;
+
+/**
+ * FallbackSourceItem
+ * Because SourceItem is abstract, we need a concrete subclass for fallback usage.
+ */
+class FallbackSourceItem extends SourceItem {
+  public async performAction(): Promise<void> {
+    console.log(
+      "[FallbackSourceItem] No recognized source type. Nothing to do."
+    );
+    app.displayInfoMessage("Fallback: no recognized source item found.");
+  }
+}
 
 /**
  * runSourceIntegration
@@ -30,11 +44,11 @@ async function runSourceIntegration(): Promise<void> {
       const range = editor.getSelectedLineRange();
       selectedText = editor.getTextInRange(range[0], range[1]);
     }
-
-    console.log("Draft title:", title);
+    console.log(`[SourceIntegration] Draft title: "${title}"`);
     console.log(
-      "Selected text length:",
-      selectedText ? selectedText.length : 0
+      `[SourceIntegration] Selected text length: ${
+        selectedText ? selectedText.length : 0
+      }`
     );
 
     interface ITaskInfo {
@@ -73,7 +87,7 @@ async function runSourceIntegration(): Promise<void> {
       console.log("Source type identified as Jira:", taskInfo.identifier);
     } else {
       console.log(
-        "Draft title does not match known patterns. Attempting GitHub..."
+        "[SourceIntegration] No recognized pattern for Todoist/Jira. Checking GitHub pattern..."
       );
       // GitHub pattern approach
       const ghPattern = /^(ghissue|ghpr|ghgist)_(.*)$/;
@@ -94,84 +108,93 @@ async function runSourceIntegration(): Promise<void> {
       }
     }
 
+    // At this point, taskInfo.sourceType might be null if we didn't match anything
     if (!taskInfo.sourceType) {
-    console.log("[SourceIntegration] No recognized source type. Using fallback actions.");
-} else {
-    console.log("[SourceIntegration] Detected sourceType:", taskInfo.sourceType);
-}
+      console.log(
+        "[SourceIntegration] No recognized source type. We'll fallback."
+      );
+    } else {
+      console.log(
+        "[SourceIntegration] Detected sourceType:",
+        taskInfo.sourceType
+      );
+    }
 
-// Prepare a SourceItem if the source type + identifier is valid
-let sourceItem: SourceItem | undefined;
-if (taskInfo.sourceType && taskInfo.identifier) {
-    switch (taskInfo.sourceType) {
-      case "todoist":
-        sourceItem = new TodoistTask(draft, selectedText!, taskInfo.identifier);
-        break;
-      case "jira":
-        sourceItem = new JiraIssue(draft, selectedText!, taskInfo.identifier);
-        break;
-      case "github":
-        if (taskInfo.itemType) {
-          sourceItem = new GitHubItem(
+    // Prepare a SourceItem if the source type + identifier is valid
+    let sourceItem: SourceItem;
+    if (taskInfo.sourceType && taskInfo.identifier) {
+      switch (taskInfo.sourceType) {
+        case "todoist":
+          sourceItem = new TodoistTask(
             draft,
             selectedText!,
-            taskInfo.identifier,
-            taskInfo.itemType
+            taskInfo.identifier
           );
-        }
-        break;
-      default:
-        console.log("Unknown source type in the registry. We'll fallback next.");
-        break;
+          break;
+        case "jira":
+          sourceItem = new JiraIssue(draft, selectedText!, taskInfo.identifier);
+          break;
+        case "github":
+          if (taskInfo.itemType) {
+            sourceItem = new GitHubItem(
+              draft,
+              selectedText!,
+              taskInfo.identifier,
+              taskInfo.itemType
+            );
+          } else {
+            // fallback if itemType missing
+            sourceItem = new FallbackSourceItem(draft, selectedText!);
+          }
+          break;
+        default:
+          // fallback if unknown
+          sourceItem = new FallbackSourceItem(draft, selectedText!);
+          break;
+      }
+    } else {
+      // fallback if no recognized pattern
+      sourceItem = new FallbackSourceItem(draft, selectedText!);
     }
-}
 
-// If we have a recognized sourceType, gather actions from the registry
-let actionsToShow = (taskInfo.sourceType && SourceActionRegistry[taskInfo.sourceType])
-  ? SourceActionRegistry[taskInfo.sourceType]
-  : [];
+    // If we have a recognized sourceType, gather actions from the registry
+    let actionsToShow =
+      taskInfo.sourceType && SourceActionRegistry[taskInfo.sourceType]
+        ? SourceActionRegistry[taskInfo.sourceType]
+        : [];
 
-// If none found or empty, use fallback from registry
-if (!actionsToShow || actionsToShow.length === 0) {
-    console.log("[SourceIntegration] Using fallback actions from registry.");
-    actionsToShow = SourceActionRegistry.fallback;
-}
-
-// Convert the array of ActionItems into a Prompt
-const p = new Prompt();
-p.title = "Available Actions";
-for (const item of actionsToShow) {
-    p.addButton(item.label);
-}
-p.addButton("Cancel");
-const didShow = p.show();
-if (!didShow || p.buttonPressed === "Cancel") {
-    console.log("[SourceIntegration] User canceled the actions prompt.");
-    cancelAction("User canceled the prompt");
-    return;
-}
-
-// The user pressed some action label
-const chosenLabel = p.buttonPressed;
-const chosenAction = actionsToShow.find(a => a.label === chosenLabel);
-if (!chosenAction) {
-    console.log("[SourceIntegration] No matching action found. Exiting.");
-    cancelAction("No recognized action from prompt");
-    return;
-}
-
-// If we have a sourceItem, pass it, else pass a dummy SourceItem
-if (!sourceItem) {
-    console.log("[SourceIntegration] No specific SourceItem object. Using a fallback SourceItem instance...");
-    sourceItem = new SourceItem(draft, selectedText!) {
-        async performAction() {
-            // Basic fallback
-        }
+    // If none found or empty, use fallback from registry
+    if (!actionsToShow || actionsToShow.length === 0) {
+      console.log("[SourceIntegration] Using fallback actions from registry.");
+      actionsToShow = SourceActionRegistry.fallback;
     }
-}
 
-console.log("[SourceIntegration] Running chosen action:", chosenLabel);
-await chosenAction.run(sourceItem);
+    // Convert the array of ActionItems into a Prompt
+    const p = new Prompt();
+    p.title = "Available Actions";
+    for (const item of actionsToShow) {
+      p.addButton(item.label);
+    }
+    p.addButton("Cancel");
+    const didShow = p.show();
+    if (!didShow || p.buttonPressed === "Cancel") {
+      console.log("[SourceIntegration] User canceled the actions prompt.");
+      cancelAction("User canceled the prompt");
+      return;
+    }
+
+    // The user pressed some action label
+    const chosenLabel = p.buttonPressed;
+    const chosenAction = actionsToShow.find((a) => a.label === chosenLabel);
+    if (!chosenAction) {
+      console.log("[SourceIntegration] No matching action found. Exiting.");
+      cancelAction("No recognized action from prompt");
+      return;
+    }
+
+    console.log("[SourceIntegration] Running chosen action:", chosenLabel);
+    // Since sourceItem must exist, we can safely do:
+    await chosenAction.run(sourceItem);
   } catch (error) {
     console.error("Error in runSourceIntegration main script:", error);
     app.displayErrorMessage("An unexpected error occurred.");
@@ -182,12 +205,11 @@ await chosenAction.run(sourceItem);
 }
 
 // Attach it to globalThis so Drafts can call `runSourceIntegration()`:
-globalThis.runSourceIntegration = runSourceIntegration;
+(globalThis as any).runSourceIntegration = runSourceIntegration;
 
 // ====================
 // Original re-exports
 // ====================
-
 export {
   copyLineDown,
   copyLineToClipboard,
