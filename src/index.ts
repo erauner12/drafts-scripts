@@ -8,6 +8,7 @@ import { GitHubItem } from "./Actions/SourceIntegration/GitHubItem";
 import { JiraIssue } from "./Actions/SourceIntegration/JiraIssue";
 import { SourceItem } from "./Actions/SourceIntegration/SourceItem";
 import { TodoistTask } from "./Actions/SourceIntegration/TodoistTask";
+import { SourceActionRegistry } from "./Actions/SourceIntegration/SourceActionRegistry";
 import { cancelAction } from "./helpers/CommonFlowUtils";
 
 declare var app: App;
@@ -93,15 +94,15 @@ async function runSourceIntegration(): Promise<void> {
       }
     }
 
-    if (!taskInfo.sourceType || !taskInfo.identifier) {
-      app.displayWarningMessage(
-        "This draft is not linked to a recognized task/issue."
-      );
-      cancelAction("No recognized patterns found");
-      return;
-    }
+    if (!taskInfo.sourceType) {
+    console.log("[SourceIntegration] No recognized source type. Using fallback actions.");
+} else {
+    console.log("[SourceIntegration] Detected sourceType:", taskInfo.sourceType);
+}
 
-    let sourceItem: SourceItem | undefined;
+// Prepare a SourceItem if the source type + identifier is valid
+let sourceItem: SourceItem | undefined;
+if (taskInfo.sourceType && taskInfo.identifier) {
     switch (taskInfo.sourceType) {
       case "todoist":
         sourceItem = new TodoistTask(draft, selectedText!, taskInfo.identifier);
@@ -120,23 +121,57 @@ async function runSourceIntegration(): Promise<void> {
         }
         break;
       default:
-        console.log("Unknown source type.");
-        app.displayWarningMessage("Unable to process the draft.");
-        cancelAction("No recognized patterns found");
-        return;
+        console.log("Unknown source type in the registry. We'll fallback next.");
+        break;
     }
+}
 
-    if (sourceItem) {
-      console.log(
-        "Performing action for source item of type:",
-        taskInfo.sourceType
-      );
-      await sourceItem.performAction();
-    } else {
-      console.log("Source item is undefined (missing itemType?).");
-      app.displayWarningMessage("Unable to process the draft.");
-      cancelAction("User canceled the prompt");
+// If we have a recognized sourceType, gather actions from the registry
+let actionsToShow = (taskInfo.sourceType && SourceActionRegistry[taskInfo.sourceType])
+  ? SourceActionRegistry[taskInfo.sourceType]
+  : [];
+
+// If none found or empty, use fallback from registry
+if (!actionsToShow || actionsToShow.length === 0) {
+    console.log("[SourceIntegration] Using fallback actions from registry.");
+    actionsToShow = SourceActionRegistry.fallback;
+}
+
+// Convert the array of ActionItems into a Prompt
+const p = new Prompt();
+p.title = "Available Actions";
+for (const item of actionsToShow) {
+    p.addButton(item.label);
+}
+p.addButton("Cancel");
+const didShow = p.show();
+if (!didShow || p.buttonPressed === "Cancel") {
+    console.log("[SourceIntegration] User canceled the actions prompt.");
+    cancelAction("User canceled the prompt");
+    return;
+}
+
+// The user pressed some action label
+const chosenLabel = p.buttonPressed;
+const chosenAction = actionsToShow.find(a => a.label === chosenLabel);
+if (!chosenAction) {
+    console.log("[SourceIntegration] No matching action found. Exiting.");
+    cancelAction("No recognized action from prompt");
+    return;
+}
+
+// If we have a sourceItem, pass it, else pass a dummy SourceItem
+if (!sourceItem) {
+    console.log("[SourceIntegration] No specific SourceItem object. Using a fallback SourceItem instance...");
+    sourceItem = new SourceItem(draft, selectedText!) {
+        async performAction() {
+            // Basic fallback
+        }
     }
+}
+
+console.log("[SourceIntegration] Running chosen action:", chosenLabel);
+await chosenAction.run(sourceItem);
   } catch (error) {
     console.error("Error in runSourceIntegration main script:", error);
     app.displayErrorMessage("An unexpected error occurred.");
