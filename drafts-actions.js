@@ -715,13 +715,18 @@ You will need this shortcut on iOS.`;
     }, getTotContent = function(totID) {
       if (device.systemName === "macOS") {
         const scriptMac = `
-          on execute()
-            -- Return the text of Tot #${totID}
-            tell application "Tot" to return content of document ${totID}
+          on execute(docNum)
+            -- Return the text of Tot #${totID}, but with a docNum argument
+            tell application "Tot"
+              if docNum > (count of documents) then
+                return ""
+              end if
+              return content of document docNum
+            end tell
           end execute
         `;
         const objAS = AppleScript.create(scriptMac);
-        if (objAS.execute("execute", []) && objAS.lastResult) {
+        if (objAS.execute("execute", [{ toString: () => totID.toString() }]) && objAS.lastResult) {
           return objAS.lastResult.toString();
         } else {
           console.log(objAS.lastError);
