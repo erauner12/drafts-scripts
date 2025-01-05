@@ -22,9 +22,16 @@
  * AI methods with your own OpenAI flows, or modify them to use your local LLM approach.
  */
 
+import {
+  cancelAction,
+  failAction,
+  quickAlert,
+} from "../helpers/CommonFlowUtils";
+
 declare var app: App;
 declare var editor: Editor;
 declare var draft: Draft;
+declare var device: Device;
 declare var context: Context;
 declare var script: Script;
 declare var device: Device;
@@ -32,15 +39,15 @@ declare var device: Device;
  * Represents the Credential constructor and static methods.
  * Credential objects can be used to securely store and manage authentication credentials
  * for services that require username, password, and optional host information.
- * 
+ *
  * @example
  * ```javascript
  * // Create basic credential
  * const cred = new Credential("MyService", "Service description");
- * 
+ *
  * // Create via static method
  * const credWithUserPass = Credential.createWithUsernamePassword(
- *   "MyService", 
+ *   "MyService",
  *   "Service description"
  * );
  * ```
@@ -57,15 +64,15 @@ declare var device: Device;
  * The user can delete those credentials at any time by visiting Settings > Credentials and tapping the "Forget" button on a service.
  *
  * @example
- * 
+ *
  * ```javascript
  * let credential = Credential.create("My Service", "Description of the service to  * appear in user prompt.");
- * 
+ *
  * credential.addTextField("username", "Username");
  * credential.addPasswordField("password", "Password");
- * 
+ *
  * credential.authorize();
- * 
+ *
  * let http = HTTP.create();
  * let response = http.request({
  *   "url": "http://myurl.com/api",
@@ -79,7 +86,7 @@ declare var device: Device;
  *     "HeaderName": "HeaderValue"
  *   }
  * });
- * 
+ *
  * ```
  */
 declare class Credential {
@@ -196,7 +203,7 @@ export abstract class SourceItem {
       const aiActionResult = aiActionPrompt.show();
       if (!aiActionResult || aiActionPrompt.buttonPressed === "Cancel") {
         console.log("AI action prompt cancelled by user.");
-        context.cancel("User cancelled AI action");
+        cancelAction("User cancelled AI action");
         return;
       }
 
@@ -242,7 +249,7 @@ ${contextText}`;
           break;
         default:
           console.log("Unknown AI action selected.");
-          context.cancel("Unknown AI action selected");
+          cancelAction("Unknown AI action selected");
           return;
       }
 
@@ -255,7 +262,7 @@ ${contextText}`;
       if (!aiResponse || aiResponse.trim() === "") {
         console.error("AI response is empty.");
         app.displayErrorMessage("AI did not return a response.");
-        context.fail("Failed to export all task information");
+        failAction("Failed to export all task information");
         return;
       }
 
@@ -310,7 +317,7 @@ ${contextText}`;
     } catch (error) {
       console.error("Error in appendAIResultToDraft:", error);
       app.displayErrorMessage("An error occurred during AI processing.");
-      context.fail("Failed to process AI response");
+      failAction("Failed to process AI response");
     }
   }
 }
@@ -377,7 +384,7 @@ export class TodoistTask extends SourceItem {
       app.displayErrorMessage(
         "An error occurred while exporting Todoist task."
       );
-      context.fail("Failed to get GitHub token");
+      failAction("Failed to get GitHub token");
       return null;
     }
   }
@@ -421,7 +428,7 @@ export class TodoistTask extends SourceItem {
       return true;
     } catch (error) {
       console.error("Error exporting task to draft:", error);
-      app.displayErrorMessage("Failed to export task to draft.");
+      quickAlert("Failed to export task to draft", String(error), true);
       return false;
     }
   }
@@ -440,11 +447,14 @@ export class TodoistTask extends SourceItem {
       } else {
         console.error("Failed to delete task:", response);
         app.displayErrorMessage("Failed to delete task.");
+        failAction(
+          "Failed to delete task. Possibly no success property from API?"
+        );
         return false;
       }
     } catch (error) {
       console.error("Error deleting task:", error);
-      app.displayErrorMessage("Failed to delete task.");
+      quickAlert("Failed to delete task.", String(error), true);
       return false;
     }
   }
@@ -462,7 +472,7 @@ export class TodoistTask extends SourceItem {
       return false;
     } catch (error) {
       console.error("Error in export and delete:", error);
-      app.displayErrorMessage("Failed to export and delete task.");
+      failAction("Failed to export and delete task.", error);
       return false;
     }
   }
@@ -493,7 +503,7 @@ export class TodoistTask extends SourceItem {
       const actionResult = actionPrompt.show();
       if (!actionResult || actionPrompt.buttonPressed === "Cancel") {
         console.log("User cancelled comment input.");
-        context.cancel("User cancelled the action");
+        cancelAction("User cancelled the action");
         return;
       }
 
@@ -519,7 +529,7 @@ export class TodoistTask extends SourceItem {
       const commentResult = commentPrompt.show();
       if (!commentResult || commentPrompt.buttonPressed === "Cancel") {
         console.log("User cancelled comment input.");
-        context.cancel("User cancelled the action");
+        cancelAction("User cancelled the action");
         return;
       }
 
@@ -540,7 +550,7 @@ export class TodoistTask extends SourceItem {
             this.todoist.lastError
           );
           app.displayErrorMessage("Failed to update comment on Todoist task.");
-          context.fail("An unexpected error occurred during execution");
+          failAction("An unexpected error occurred during execution");
         }
       } else {
         const result = this.todoist.createComment({
@@ -558,13 +568,13 @@ export class TodoistTask extends SourceItem {
             this.todoist.lastError
           );
           app.displayErrorMessage("Failed to add comment to Todoist task.");
-          context.fail("Failed to fetch issue details from Jira.");
+          failAction("Failed to fetch issue details from Jira.");
         }
       }
     } catch (error) {
       console.error("Error in addComment:", error);
       app.displayErrorMessage("An error occurred while processing comment.");
-      context.fail("Failed to fetch GitHub item details");
+      failAction("Failed to fetch GitHub item details");
     }
   }
 
@@ -642,10 +652,7 @@ export class TodoistTask extends SourceItem {
         "openChatGPTWithClipboard: Error merging or opening ChatGPT:",
         err
       );
-      alert(
-        "An error occurred in openChatGPTWithClipboard:\n" +
-          (err instanceof Error ? err.stack : String(err))
-      );
+      failAction("Error merging or opening ChatGPT", err);
     }
   }
 
@@ -805,12 +812,7 @@ export class TodoistTask extends SourceItem {
               "composeChatPrompt: Error during AI refinement:",
               refineErr
             );
-            alert(
-              "Error during AI refinement:\n" +
-                (refineErr instanceof Error
-                  ? refineErr.stack
-                  : String(refineErr))
-            );
+            failAction("Error during AI refinement:", refineErr);
           }
         } else if (prompt.buttonPressed === "Open ChatGPT Now") {
           console.log(
@@ -890,11 +892,7 @@ export class TodoistTask extends SourceItem {
       this.openChatGPTSimple();
     } catch (err) {
       console.error("Error in composeChatPrompt:", err);
-      alert(
-        "An error occurred in composeChatPrompt:\n" +
-          (err instanceof Error ? err.stack : JSON.stringify(err))
-      );
-      app.displayErrorMessage("Error during prompt composition.");
+      failAction("Error during prompt composition.", err);
     }
   }
 
@@ -904,7 +902,11 @@ export class TodoistTask extends SourceItem {
 
       const task = this.todoist.getTask(this.taskId);
       if (!task) {
-        app.displayErrorMessage("Failed to retrieve task details.");
+        quickAlert(
+          "Failed to retrieve task details.",
+          "Task is undefined",
+          true
+        );
         return;
       }
 
@@ -959,7 +961,7 @@ export class TodoistTask extends SourceItem {
       app.displaySuccessMessage("Session started for Evan.");
     } catch (error) {
       console.error("Error in startSessionForEvan:", error);
-      app.displayErrorMessage("Failed to start session.");
+      failAction("Failed to start session.", error);
     }
   }
 
@@ -985,7 +987,7 @@ export class TodoistTask extends SourceItem {
       const result = p.show();
       if (!result || p.buttonPressed === "Cancel") {
         console.log("User cancelled the action.");
-        context.cancel("User cancelled adding comment");
+        cancelAction("User cancelled adding comment");
         return;
       }
 
@@ -1062,12 +1064,12 @@ export class TodoistTask extends SourceItem {
           break;
         default:
           console.log("Unknown action selected.");
-          context.cancel("User cancelled the action");
+          cancelAction("User cancelled the action");
       }
     } catch (error) {
       console.error("Error in TodoistTask performAction:", error);
       app.displayErrorMessage("An error occurred during Todoist action.");
-      context.fail("Failed to retrieve GitHub item details");
+      failAction("Failed to retrieve GitHub item details");
     }
   }
 }
@@ -1152,13 +1154,13 @@ export class JiraIssue extends SourceItem {
           response.responseText
         );
         app.displayErrorMessage("Failed to fetch issue details from Jira.");
-        context.fail("Failed to fetch issue details from Jira");
+        failAction("Failed to fetch issue details from Jira");
         return null;
       }
     } catch (error) {
       console.error("Error in JiraIssue exportAll:", error);
       app.displayErrorMessage("An error occurred while exporting Jira issue.");
-      context.fail("Failed to fetch issue details from GitHub");
+      failAction("Failed to fetch issue details from GitHub");
       return null;
     }
   }
@@ -1179,7 +1181,7 @@ export class JiraIssue extends SourceItem {
       const commentResult = commentPrompt.show();
       if (!commentResult || commentPrompt.buttonPressed === "Cancel") {
         console.log("User cancelled adding comment.");
-        context.cancel("User cancelled the action");
+        cancelAction("User cancelled the action");
         return;
       }
 
@@ -1212,12 +1214,12 @@ export class JiraIssue extends SourceItem {
           response.responseText
         );
         app.displayErrorMessage("Failed to add comment to Jira issue.");
-        context.fail("Failed to add comment to Jira issue");
+        failAction("Failed to add comment to Jira issue");
       }
     } catch (error) {
       console.error("Error in addComment:", error);
       app.displayErrorMessage("An error occurred while adding comment.");
-      context.fail("Failed to add comment to GitHub item");
+      failAction("Failed to add comment to GitHub item");
     }
   }
 
@@ -1241,7 +1243,7 @@ export class JiraIssue extends SourceItem {
       const taskNameResult = taskNamePrompt.show();
       if (!taskNameResult || taskNamePrompt.buttonPressed === "Cancel") {
         console.log("User cancelled creating Todoist task.");
-        context.cancel("User cancelled adding comment");
+        cancelAction("User cancelled adding comment");
         return;
       }
 
@@ -1272,12 +1274,12 @@ export class JiraIssue extends SourceItem {
       } else {
         console.error("Failed to create Todoist task:", todoist.lastError);
         app.displayErrorMessage("Failed to create Todoist task.");
-        context.fail("Failed to create Todoist task");
+        failAction("Failed to create Todoist task");
       }
     } catch (error) {
       console.error("Error in createTodoistTask:", error);
       app.displayErrorMessage("An error occurred while creating Todoist task.");
-      context.fail("Failed to export GitHub item");
+      failAction("Failed to export GitHub item");
     }
   }
 
@@ -1299,7 +1301,7 @@ export class JiraIssue extends SourceItem {
       const result = p.show();
       if (!result || p.buttonPressed === "Cancel") {
         console.log("User cancelled the action.");
-        context.cancel("User canceled the action");
+        cancelAction("User canceled the action");
         return;
       }
 
@@ -1331,12 +1333,12 @@ export class JiraIssue extends SourceItem {
           break;
         default:
           console.log("Unknown action selected.");
-          context.cancel("User canceled the action");
+          cancelAction("User canceled the action");
       }
     } catch (error) {
       console.error("Error in JiraIssue performAction:", error);
       app.displayErrorMessage("An error occurred during Jira action.");
-      context.fail("Failed to fetch GitHub item details");
+      failAction("Failed to fetch GitHub item details");
     }
   }
 }
@@ -1409,7 +1411,7 @@ export class GitHubItem extends SourceItem {
         this.identifier
       );
       app.displayErrorMessage("Unable to construct GitHub URL.");
-      context.fail("Failed to fetch GitHub item details");
+      cancelAction("Failed to fetch GitHub item details");
     }
   }
 
@@ -1480,13 +1482,13 @@ export class GitHubItem extends SourceItem {
           response.responseText
         );
         app.displayErrorMessage("Failed to fetch GitHub item from GitHub API.");
-        context.fail("Failed to fetch GitHub item details");
+        failAction("Failed to fetch GitHub item details");
         return null;
       }
     } catch (error) {
       console.error("Error in GitHubItem.exportAll:", error);
       app.displayErrorMessage("An error occurred while exporting GitHub item.");
-      context.fail("Failed to fetch GitHub item details");
+      failAction("Failed to fetch GitHub item details");
       return null;
     }
   }
@@ -1506,7 +1508,7 @@ export class GitHubItem extends SourceItem {
       const result = p.show();
       if (!result || p.buttonPressed === "Cancel") {
         console.log("User cancelled the action.");
-        context.cancel("User canceled the action");
+        cancelAction("User canceled the action");
         return;
       }
 
@@ -1530,12 +1532,12 @@ export class GitHubItem extends SourceItem {
         }
         default:
           console.log("Unknown action selected.");
-          context.cancel("User canceled the action");
+          cancelAction("User canceled the action");
       }
     } catch (error) {
       console.error("Error in GitHubItem performAction:", error);
       app.displayErrorMessage("An error occurred during GitHub action.");
-      context.fail("Failed to fetch GitHub item details");
+      failAction("Failed to fetch GitHub item details");
     }
   }
 }
@@ -1588,7 +1590,7 @@ export async function runSourceIntegration(): Promise<void> {
     if (!title || title.trim() === "") {
       console.log("Draft title is empty or undefined.");
       app.displayWarningMessage("Draft title is missing.");
-      context.cancel("No recognized patterns found");
+      cancelAction("No recognized patterns found");
       return;
     }
 
@@ -1635,7 +1637,7 @@ export async function runSourceIntegration(): Promise<void> {
       app.displayWarningMessage(
         "This draft is not linked to a recognized task/issue."
       );
-      context.cancel("No recognized patterns found");
+      cancelAction("No recognized patterns found");
       return;
     }
 
@@ -1660,7 +1662,7 @@ export async function runSourceIntegration(): Promise<void> {
       default:
         console.log("Unknown source type.");
         app.displayWarningMessage("Unable to process the draft.");
-        context.cancel("No recognized patterns found");
+        cancelAction("No recognized patterns found");
         return;
     }
 
@@ -1673,12 +1675,12 @@ export async function runSourceIntegration(): Promise<void> {
     } else {
       console.log("Source item is undefined (possibly missing itemType?).");
       app.displayWarningMessage("Unable to process the draft.");
-      context.cancel("User canceled the prompt");
+      cancelAction("User canceled the prompt");
     }
   } catch (error) {
     console.error("Error in runSourceIntegration main script:", error);
     app.displayErrorMessage("An unexpected error occurred.");
-    context.fail("Failed to authorize credentials");
+    failAction("Failed to authorize credentials");
   } finally {
     console.log("SourceIntegration: script completed.");
     script.complete();
