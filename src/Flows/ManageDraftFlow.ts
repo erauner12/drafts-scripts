@@ -22,7 +22,14 @@ export function runManageDraftFlow(): void {
   const buttonPressed = showPromptWithButtons(
     "Manage Draft Flow",
     `Folder: ${folder} || Draft: "${draft.title}"\n(${draft.uuid})`,
-    ["Trash", "Move to Inbox", "Archive", "Queue: MyActionName", "Cancel"]
+    [
+      "Trash",
+      "Move to Inbox",
+      "Archive",
+      "Queue: MyActionName",
+      "Process Source",
+      "Cancel",
+    ]
   );
 
   if (!buttonPressed) {
@@ -32,7 +39,7 @@ export function runManageDraftFlow(): void {
   }
 
   // Decide how to handle the user’s choice
-  switch (p.buttonPressed) {
+  switch (buttonPressed) {
     case "Trash": {
       if (!draft.isTrashed) {
         draft.isTrashed = true;
@@ -55,6 +62,11 @@ export function runManageDraftFlow(): void {
       // Instead of manually setting ExecutorData, let queueJsonAction handle ephemeral
       const ephemeralJson = { draftAction: "MyActionName" };
       queueJsonAction(ephemeralJson);
+      break;
+    }
+    case "Process Source": {
+      // Now call our new Source Integration flow
+      runSourceIntegration();
       break;
     }
   }
