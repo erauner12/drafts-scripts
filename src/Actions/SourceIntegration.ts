@@ -596,7 +596,7 @@ export class TodoistTask extends SourceItem {
       prompt.addTextView("clip", "", existingClipboard || "", { height: 80 });
 
       prompt.addButton("Merge & Copy");
-      prompt.addButton("Use Only Refined", null, true);
+      prompt.addButton("Use Only Refined", undefined, true);
       prompt.addButton("Cancel");
 
       const didShow = prompt.show();
@@ -643,7 +643,8 @@ export class TodoistTask extends SourceItem {
         err
       );
       alert(
-        "An error occurred in openChatGPTWithClipboard:\n" + (err.stack || err)
+        "An error occurred in openChatGPTWithClipboard:\n" +
+          (err instanceof Error ? err.stack : String(err))
       );
     }
   }
@@ -805,7 +806,10 @@ export class TodoistTask extends SourceItem {
               refineErr
             );
             alert(
-              "Error during AI refinement:\n" + (refineErr.stack || refineErr)
+              "Error during AI refinement:\n" +
+                (refineErr instanceof Error
+                  ? refineErr.stack
+                  : String(refineErr))
             );
           }
         } else if (prompt.buttonPressed === "Open ChatGPT Now") {
@@ -888,7 +892,7 @@ export class TodoistTask extends SourceItem {
       console.error("Error in composeChatPrompt:", err);
       alert(
         "An error occurred in composeChatPrompt:\n" +
-          (err.stack || JSON.stringify(err))
+          (err instanceof Error ? err.stack : JSON.stringify(err))
       );
       app.displayErrorMessage("Error during prompt composition.");
     }
@@ -905,7 +909,13 @@ export class TodoistTask extends SourceItem {
       }
 
       const duration = 25; // minutes
-      const comments = this.todoist.getComments({ task_id: this.taskId });
+      interface TodoistComment {
+        content: string;
+        posted_at: string;
+      }
+      const comments = this.todoist.getComments({
+        task_id: this.taskId,
+      }) as TodoistComment[];
       let lastComment = "";
       if (comments && comments.length > 0) {
         lastComment = comments[comments.length - 1].content;
@@ -1289,7 +1299,7 @@ export class JiraIssue extends SourceItem {
       const result = p.show();
       if (!result || p.buttonPressed === "Cancel") {
         console.log("User cancelled the action.");
-        context.cancel();
+        context.cancel("User canceled the action");
         return;
       }
 
@@ -1321,7 +1331,7 @@ export class JiraIssue extends SourceItem {
           break;
         default:
           console.log("Unknown action selected.");
-          context.cancel();
+          context.cancel("User canceled the action");
       }
     } catch (error) {
       console.error("Error in JiraIssue performAction:", error);
@@ -1470,13 +1480,13 @@ export class GitHubItem extends SourceItem {
           response.responseText
         );
         app.displayErrorMessage("Failed to fetch GitHub item from GitHub API.");
-        context.fail();
+        context.fail("Failed to fetch GitHub item details");
         return null;
       }
     } catch (error) {
       console.error("Error in GitHubItem.exportAll:", error);
       app.displayErrorMessage("An error occurred while exporting GitHub item.");
-      context.fail();
+      context.fail("Failed to fetch GitHub item details");
       return null;
     }
   }
@@ -1496,7 +1506,7 @@ export class GitHubItem extends SourceItem {
       const result = p.show();
       if (!result || p.buttonPressed === "Cancel") {
         console.log("User cancelled the action.");
-        context.cancel();
+        context.cancel("User canceled the action");
         return;
       }
 
@@ -1520,12 +1530,12 @@ export class GitHubItem extends SourceItem {
         }
         default:
           console.log("Unknown action selected.");
-          context.cancel();
+          context.cancel("User canceled the action");
       }
     } catch (error) {
       console.error("Error in GitHubItem performAction:", error);
       app.displayErrorMessage("An error occurred during GitHub action.");
-      context.fail();
+      context.fail("Failed to fetch GitHub item details");
     }
   }
 }
@@ -1578,7 +1588,7 @@ export async function runSourceIntegration(): Promise<void> {
     if (!title || title.trim() === "") {
       console.log("Draft title is empty or undefined.");
       app.displayWarningMessage("Draft title is missing.");
-      context.cancel();
+      context.cancel("No recognized patterns found");
       return;
     }
 
@@ -1625,7 +1635,7 @@ export async function runSourceIntegration(): Promise<void> {
       app.displayWarningMessage(
         "This draft is not linked to a recognized task/issue."
       );
-      context.cancel();
+      context.cancel("No recognized patterns found");
       return;
     }
 
@@ -1650,7 +1660,7 @@ export async function runSourceIntegration(): Promise<void> {
       default:
         console.log("Unknown source type.");
         app.displayWarningMessage("Unable to process the draft.");
-        context.cancel();
+        context.cancel("No recognized patterns found");
         return;
     }
 
@@ -1663,12 +1673,12 @@ export async function runSourceIntegration(): Promise<void> {
     } else {
       console.log("Source item is undefined (possibly missing itemType?).");
       app.displayWarningMessage("Unable to process the draft.");
-      context.cancel();
+      context.cancel("User canceled the prompt");
     }
   } catch (error) {
     console.error("Error in runSourceIntegration main script:", error);
     app.displayErrorMessage("An unexpected error occurred.");
-    context.fail();
+    context.fail("Failed to authorize credentials");
   } finally {
     console.log("SourceIntegration: script completed.");
     script.complete();
