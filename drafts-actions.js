@@ -3140,7 +3140,6 @@ async function runSourceIntegration2() {
       taskInfo.identifier = match ? match[1] : null;
       console.log("Source type identified as Jira:", taskInfo.identifier);
     } else {
-      console.log("[SourceIntegration] No recognized pattern for Todoist/Jira. Checking GitHub pattern...");
       const ghPattern = /^(ghissue|ghpr|ghgist)_(.*)$/;
       const ghMatch = ghPattern.exec(title);
       if (ghMatch) {
@@ -3154,6 +3153,8 @@ async function runSourceIntegration2() {
         }
         taskInfo.identifier = ghMatch[2];
         console.log(`Source type identified as GitHub: itemType=${taskInfo.itemType}, identifier=${taskInfo.identifier}`);
+      } else {
+        console.log("[SourceIntegration] No recognized source type. We'll fallback.");
       }
     }
     if (!taskInfo.sourceType) {

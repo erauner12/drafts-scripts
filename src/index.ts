@@ -9,9 +9,6 @@ import { SourceItem } from "./Actions/SourceIntegration/SourceItem";
 import { TodoistTask } from "./Actions/SourceIntegration/TodoistTask";
 import { cancelAction } from "./helpers/CommonFlowUtils";
 
-
-
-
 declare var app: App;
 declare var editor: Editor;
 declare var draft: Draft;
@@ -86,10 +83,7 @@ async function runSourceIntegration(): Promise<void> {
       taskInfo.identifier = match ? match[1] : null;
       console.log("Source type identified as Jira:", taskInfo.identifier);
     } else {
-      console.log(
-        "[SourceIntegration] No recognized pattern for Todoist/Jira. Checking GitHub pattern..."
-      );
-      // GitHub pattern approach
+      // Next, check GitHub pattern
       const ghPattern = /^(ghissue|ghpr|ghgist)_(.*)$/;
       const ghMatch = ghPattern.exec(title);
       if (ghMatch) {
@@ -104,6 +98,10 @@ async function runSourceIntegration(): Promise<void> {
         taskInfo.identifier = ghMatch[2];
         console.log(
           `Source type identified as GitHub: itemType=${taskInfo.itemType}, identifier=${taskInfo.identifier}`
+        );
+      } else {
+        console.log(
+          "[SourceIntegration] No recognized source type. We'll fallback."
         );
       }
     }
