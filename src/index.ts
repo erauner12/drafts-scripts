@@ -114,6 +114,7 @@ export {
 export { runAiTextToCalendar } from "./Actions/AiTextToCalendar";
 
 // Re-export the new example
+export { runSourceIntegration } from "./Actions/SourceIntegration";
 export { exampleUsingLodash, exampleUsingMyCoolLib } from "./ExampleUsingLodash";
 export { exampleUsingMyLegacyLib } from "./ExampleUsingMyLegacyLib";
 export { runPlainJsExample } from "./ExampleUsingPlainJs";
