@@ -732,21 +732,24 @@ You will need this shortcut on iOS.`;
         `;
         const objAS = AppleScript.create(scriptMac);
         const docList = [totID.toString()];
-        if (objAS.execute("execute", [docList])) {
+        console.log(`[TOTIntegration] Attempting to fetch TOT content for doc ID = "${totID}"`);
+        const success = objAS.execute("execute", [docList]);
+        console.log(`[TOTIntegration] AppleScript execute success? ${success ? "Yes" : "No"}`);
+        if (success) {
           if (objAS.lastResult) {
             const oldContentResult = objAS.lastResult.toString();
-            console.log("Fetched TOT content length:", oldContentResult.length);
+            const truncatedContent = oldContentResult.length > 300 ? oldContentResult.substring(0, 300) + " [TRUNCATED]" : oldContentResult;
+            console.log(`[TOTIntegration] TOT doc #${totID} content length: ${oldContentResult.length}`);
+            console.log(`[TOTIntegration] TOT doc #${totID} raw content (truncated):
+${truncatedContent}
+`);
             return oldContentResult;
           } else {
-            const errMsg = "[TOTIntegration] AppleScript returned no result.";
-            console.error(errMsg);
-            failAction(errMsg, objAS.lastError);
+            console.log(`[TOTIntegration] TOT doc #${totID} returned no content.`);
             return "";
           }
         } else {
-          const errMsg = "[TOTIntegration] AppleScript execution failed.";
-          console.error(errMsg, objAS.lastError);
-          failAction(errMsg, objAS.lastError);
+          console.log(`[TOTIntegration] AppleScript error fetching TOT doc #${totID}:`, objAS.lastError);
           return "";
         }
       } else {
@@ -800,14 +803,22 @@ What would you like to do?`;
       return;
     }
     if (chosenAction === "Open") {
+      console.log("[TOTIntegration] User chose to OPEN TOT:", chosenID);
       app.openURL(`tot://${chosenID}`);
       context.cancel("User opened TOT.");
       script.complete();
       return;
     }
+    console.log(`[TOTIntegration] TOT doc #${chosenID} content before user action:
+${oldContent}
+`);
     if (oldContent.trim().length === 0) {
+      console.log(`[TOTIntegration] TOT doc #${chosenID} is empty from TOT's perspective.`);
       alert(`Tot #${chosenID} is currently empty.`);
     } else {
+      console.log(`[TOTIntegration] TOT doc #${chosenID} has existing content:
+${oldContent}
+`);
       const showPrompt = new Prompt;
       showPrompt.title = `Preview of Tot #${chosenID}`;
       showPrompt.message = `--- BEGIN CONTENT ---
@@ -835,6 +846,7 @@ ${draftTitle}
 ${draftLink}`;
     let finalContent = "";
     if (chosenAction === "Append") {
+      console.log("[TOTIntegration] About to APPEND to TOT doc:", chosenID);
       finalContent = oldContent.trim();
       if (finalContent.length > 0) {
         finalContent += `
@@ -842,8 +854,15 @@ ${draftLink}`;
 `;
       }
       finalContent += newPart;
+      console.log("[TOTIntegration] APPEND final content (truncated if large):");
+      const truncatedAppend = finalContent.length > 300 ? finalContent.substring(0, 300) + " [TRUNCATED]" : finalContent;
+      console.log(truncatedAppend);
     } else if (chosenAction === "Replace") {
+      console.log("[TOTIntegration] About to REPLACE TOT doc:", chosenID);
       finalContent = newPart;
+      console.log("[TOTIntegration] REPLACE final content (truncated if large):");
+      const truncatedReplace = finalContent.length > 300 ? finalContent.substring(0, 300) + " [TRUNCATED]" : finalContent;
+      console.log(truncatedReplace);
     }
     const totReplaceURL = `tot://${chosenID}/replace?text=${encodeURIComponent(finalContent)}`;
     app.openURL(totReplaceURL);
