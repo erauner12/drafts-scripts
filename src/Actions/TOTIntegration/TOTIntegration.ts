@@ -79,8 +79,16 @@ export async function runTOTIntegration(): Promise<void> {
       // If macOS, run AppleScript
       if (device.systemName === "macOS") {
         const scriptMac = `
-          on execute(docID)
-            -- docID will be passed as a string, so coerce to number
+          on execute(docList)
+            (*
+              docList should be a list containing exactly one text item, e.g., {"7"}.
+              We'll get item 1 and coerce it to a number.
+            *)
+            if (count of docList) is 0 then
+              return ""
+            end if
+
+            set docID to item 1 of docList
             set docNum to docID as number
 
             tell application "Tot"
@@ -98,15 +106,15 @@ export async function runTOTIntegration(): Promise<void> {
         `;
         const objAS = AppleScript.create(scriptMac);
 
-        // Wrap totID in new String(...) so the argument is an object, satisfying TS type
-        const docArg: object = new String(totID.toString());
+        // We'll pass an array-of-strings as a single argument. That satisfies object[] in TS.
+        const docList: string[] = [totID.toString()];
 
-        if (objAS.execute("execute", [docArg]) && objAS.lastResult) {
+        if (objAS.execute("execute", [docList]) && objAS.lastResult) {
           const oldContentResult = objAS.lastResult.toString();
           console.log("Fetched TOT content length:", oldContentResult.length);
           return oldContentResult;
         } else {
-          console.log(objAS.lastError);
+          console.log("AppleScript error:", objAS.lastError);
           return "";
         }
       } else {
