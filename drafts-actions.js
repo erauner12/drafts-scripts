@@ -742,12 +742,21 @@ You will need this shortcut on iOS.`;
         `;
         const objAS = AppleScript.create(scriptMac);
         const docList = [totID.toString()];
-        if (objAS.execute("execute", [docList]) && objAS.lastResult) {
-          const oldContentResult = objAS.lastResult.toString();
-          console.log("Fetched TOT content length:", oldContentResult.length);
-          return oldContentResult;
+        if (objAS.execute("execute", [docList])) {
+          if (objAS.lastResult) {
+            const oldContentResult = objAS.lastResult.toString();
+            console.log("Fetched TOT content length:", oldContentResult.length);
+            return oldContentResult;
+          } else {
+            const errMsg = "[TOTIntegration] AppleScript returned no result.";
+            console.error(errMsg);
+            failAction(errMsg, objAS.lastError);
+            return "";
+          }
         } else {
-          console.log("AppleScript error:", objAS.lastError);
+          const errMsg = "[TOTIntegration] AppleScript execution failed.";
+          console.error(errMsg, objAS.lastError);
+          failAction(errMsg, objAS.lastError);
           return "";
         }
       } else {

@@ -1,3 +1,5 @@
+import { failAction } from "../../helpers/CommonFlowUtils";
+
 /**
  * TOTIntegration.ts
  *
@@ -109,12 +111,21 @@ export async function runTOTIntegration(): Promise<void> {
         // We'll pass an array-of-strings as a single argument. That satisfies object[] in TS.
         const docList: string[] = [totID.toString()];
 
-        if (objAS.execute("execute", [docList]) && objAS.lastResult) {
-          const oldContentResult = objAS.lastResult.toString();
-          console.log("Fetched TOT content length:", oldContentResult.length);
-          return oldContentResult;
+        if (objAS.execute("execute", [docList])) {
+          if (objAS.lastResult) {
+            const oldContentResult = objAS.lastResult.toString();
+            console.log("Fetched TOT content length:", oldContentResult.length);
+            return oldContentResult;
+          } else {
+            const errMsg = "[TOTIntegration] AppleScript returned no result.";
+            console.error(errMsg);
+            failAction(errMsg, objAS.lastError);
+            return "";
+          }
         } else {
-          console.log("AppleScript error:", objAS.lastError);
+          const errMsg = "[TOTIntegration] AppleScript execution failed.";
+          console.error(errMsg, objAS.lastError);
+          failAction(errMsg, objAS.lastError);
           return "";
         }
       } else {
