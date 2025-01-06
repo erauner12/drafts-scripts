@@ -715,8 +715,9 @@ You will need this shortcut on iOS.`;
     }, getTotContent = function(totID) {
       if (device.systemName === "macOS") {
         const scriptMac = `
-          on execute(docNum)
-            -- Return the text of Tot #${totID}, but with a docNum argument
+          on execute(docID)
+            -- docID will be passed as a string, so coerce to number
+            set docNum to docID as number
             tell application "Tot"
               if docNum > (count of documents) then
                 return ""
@@ -726,8 +727,10 @@ You will need this shortcut on iOS.`;
           end execute
         `;
         const objAS = AppleScript.create(scriptMac);
-        if (objAS.execute("execute", [totID]) && objAS.lastResult) {
-          return objAS.lastResult.toString();
+        if (objAS.execute("execute", [totID.toString()]) && objAS.lastResult) {
+          const oldContentResult = objAS.lastResult.toString();
+          console.log("Fetched TOT content length:", oldContentResult.length);
+          return oldContentResult;
         } else {
           console.log(objAS.lastError);
           return "";
