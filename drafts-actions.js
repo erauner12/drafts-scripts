@@ -3308,12 +3308,35 @@ function toGoogleCalendarURL(event) {
   return url;
 }
 // src/helpers/helpers-open-or-create.ts
-function resolveClipboardText(customText) {
+function resolveClipboardText(customText, options) {
   const trimmed = (customText || "").trim();
   if (trimmed.length > 0) {
     return trimmed;
   }
-  return draft.processTemplate("[[clipboard]]");
+  const clipboardText = draft.processTemplate("[[clipboard]]");
+  console.log("[resolveClipboardText] No custom text supplied. Clipboard text is:", clipboardText);
+  if (options?.forceClipboard) {
+    console.log("[resolveClipboardText] forceClipboard=true, returning clipboard text directly.");
+    return clipboardText;
+  }
+  if (options?.promptClipboard) {
+    const p = Prompt.create();
+    p.title = "Use Clipboard Text?";
+    p.message = `Clipboard contains:
+
+"${clipboardText}"
+
+Use this text?`;
+    p.addButton("Yes");
+    p.addButton("No");
+    if (!p.show() || p.buttonPressed === "No") {
+      console.log("[resolveClipboardText] User canceled using clipboard data.");
+      return "";
+    }
+    console.log("[resolveClipboardText] User confirmed clipboard usage. Returning text.");
+    return clipboardText;
+  }
+  return clipboardText;
 }
 function openOrCreateDraftWithTitleAndAction(opts) {
   const { title, text, tags, actionName, flagged, archived } = opts;
@@ -3358,7 +3381,11 @@ ${text}` : title;
 
 // src/Actions/SourceIntegration/TodoistSourceViaOpenOrCreate.ts
 function runTodoistSourceViaOpenOrCreate(customTitle, customText) {
-  const textToUse = resolveClipboardText(customText);
+  const textToUse = resolveClipboardText(customText, {
+    promptClipboard: true,
+    forceClipboard: false
+  });
+  console.log("[runTodoistSourceViaOpenOrCreate] Final text to use is:", textToUse);
   const titleToUse = customTitle || "task_12345";
   openOrCreateDraftWithTitleAndAction({
     title: titleToUse,

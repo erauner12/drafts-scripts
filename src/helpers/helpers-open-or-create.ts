@@ -23,11 +23,15 @@ declare var editor: Editor;
 declare var app: App;
 
 /**
-  * Resolve text from an optional custom string or from the clipboard if not provided.
+  * Resolve text from an optional custom string or from the clipboard if not provided,
+  * with optional user confirmation.
   *
-  * @param customText An optional string of text. If present and not empty, it is returned.
-  *                   If absent or empty, text is taken from the clipboard.
-  * @returns The resolved text from either `customText` or the clipboard.
+  * @param customText An optional string of text. If present and not empty, it is returned immediately.
+  * @param options Object with optional flags:
+  *   - promptClipboard: If true, display a prompt letting the user confirm use of clipboard text.
+  *   - forceClipboard: If true, skip the prompt even if promptClipboard is set, forcing usage of clipboard if customText is empty.
+  *
+  * @returns The resolved text from either `customText`, or the confirmed (or forced) clipboard text. If user cancels, returns an empty string.
   *
   * @example
   * // Suppose user calls:
@@ -38,13 +42,50 @@ declare var app: App;
   * // If nothing is passed, text2 is the current clipboard content
   * // evaluated by draft.processTemplate("[[clipboard]]").
   */
- export function resolveClipboardText(customText?: string): string {
+ export function resolveClipboardText(
+   customText?: string,
+   options?: {
+     promptClipboard?: boolean;
+     forceClipboard?: boolean;
+   }
+ ): string {
    const trimmed = (customText || "").trim();
    if (trimmed.length > 0) {
      return trimmed;
    }
    // If nothing was provided, or only whitespace, read from the clipboard
-   return draft.processTemplate("[[clipboard]]");
+   const clipboardText = draft.processTemplate("[[clipboard]]");
+   console.log(
+     "[resolveClipboardText] No custom text supplied. Clipboard text is:",
+     clipboardText
+   );
+
+   if (options?.forceClipboard) {
+     console.log(
+       "[resolveClipboardText] forceClipboard=true, returning clipboard text directly."
+     );
+     return clipboardText;
+   }
+
+   if (options?.promptClipboard) {
+     const p = Prompt.create();
+     p.title = "Use Clipboard Text?";
+     p.message = `Clipboard contains:\n\n"${clipboardText}"\n\nUse this text?`;
+     p.addButton("Yes");
+     p.addButton("No");
+     if (!p.show() || p.buttonPressed === "No") {
+       console.log(
+         "[resolveClipboardText] User canceled using clipboard data."
+       );
+       return "";
+     }
+     console.log(
+       "[resolveClipboardText] User confirmed clipboard usage. Returning text."
+     );
+     return clipboardText;
+   }
+
+   return clipboardText;
  }
  
  interface OpenOrCreateOptions {

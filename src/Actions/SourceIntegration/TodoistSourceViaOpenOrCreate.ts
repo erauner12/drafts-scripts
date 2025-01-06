@@ -16,11 +16,13 @@ export function runTodoistSourceViaOpenOrCreate(
   customTitle?: string,
   customText?: string
 ) {
-  // If no text is provided, we read from the clipboard
-  // Note that we can also accept a custom text param if desired,
-  // in case TOT or another system is passing it along.
-  // Resolve text from either `customText` or the clipboard
-  const textToUse = resolveClipboardText(customText);
+  // In this scenario, let's demonstrate a user prompt for the clipboard if no custom text is given:
+  const textToUse = resolveClipboardText(customText, {
+    promptClipboard: true,
+    forceClipboard: false
+  });
+
+  console.log("[runTodoistSourceViaOpenOrCreate] Final text to use is:", textToUse);
 
   // If no title is provided, default to something like "task_12345"
   // In a real scenario, we'd pass it in from TOT or an external URL param
