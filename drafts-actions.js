@@ -3307,6 +3307,66 @@ function toGoogleCalendarURL(event) {
   const url = `https://calendar.google.com/calendar/render` + `?action=TEMPLATE` + `&text=${textParam}` + `&dates=${datesParam}` + `&details=${detailsParam}` + `&location=${locationParam}` + `&trp=false`;
   return url;
 }
+// src/helpers/helpers-open-or-create.ts
+function resolveClipboardText(customText) {
+  const trimmed = (customText || "").trim();
+  if (trimmed.length > 0) {
+    return trimmed;
+  }
+  return draft.processTemplate("[[clipboard]]");
+}
+function openOrCreateDraftWithTitleAndAction(opts) {
+  const { title, text, tags, actionName, flagged, archived } = opts;
+  const foundDrafts = Draft.queryByTitle(title) || [];
+  let theDraft;
+  if (foundDrafts.length > 0) {
+    theDraft = foundDrafts[0];
+  } else {
+    theDraft = Draft.create();
+    const fullContent = text ? text.trim().startsWith(title) ? text : `${title}
+${text}` : title;
+    theDraft.content = fullContent;
+    if (tags && tags.length > 0) {
+      for (const tag of tags) {
+        theDraft.addTag(tag);
+      }
+    }
+    if (flagged !== undefined) {
+      theDraft.isFlagged = flagged;
+    }
+    if (archived) {
+      theDraft.isArchived = true;
+    }
+    theDraft.update();
+  }
+  if (actionName) {
+    const actionToRun = Action.find(actionName);
+    if (!actionToRun) {
+      app.displayErrorMessage(`openOrCreateDraftWithTitleAndAction: Could not find action named "${actionName}".`);
+      editor.load(theDraft);
+      return;
+    }
+    const success = app.queueAction(actionToRun, theDraft);
+    if (!success) {
+      app.displayErrorMessage(`openOrCreateDraftWithTitleAndAction: Failed to queue "${actionName}" action.`);
+      editor.load(theDraft);
+    }
+  } else {
+    editor.load(theDraft);
+  }
+}
+
+// src/Actions/SourceIntegration/TodoistSourceViaOpenOrCreate.ts
+function runTodoistSourceViaOpenOrCreate(customTitle, customText) {
+  const textToUse = resolveClipboardText(customText);
+  const titleToUse = customTitle || "task_12345";
+  openOrCreateDraftWithTitleAndAction({
+    title: titleToUse,
+    text: textToUse,
+    actionName: "Todoist Source",
+    tags: ["todoist"]
+  });
+}
 
 // src/index.ts
 class FallbackSourceItem extends SourceItem {
