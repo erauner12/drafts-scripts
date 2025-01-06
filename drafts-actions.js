@@ -718,16 +718,23 @@ You will need this shortcut on iOS.`;
           on execute(docID)
             -- docID will be passed as a string, so coerce to number
             set docNum to docID as number
+
             tell application "Tot"
-              if docNum > (count of documents) then
+              set totalDocs to (count of documents)
+              log "TOT Document Count: " & totalDocs
+              log "Requested docNum: " & docNum
+
+              if docNum > totalDocs or docNum < 1 then
                 return ""
               end if
+
               return content of document docNum
             end tell
           end execute
         `;
         const objAS = AppleScript.create(scriptMac);
-        if (objAS.execute("execute", [totID.toString()]) && objAS.lastResult) {
+        const docArg = new String(totID.toString());
+        if (objAS.execute("execute", [docArg]) && objAS.lastResult) {
           const oldContentResult = objAS.lastResult.toString();
           console.log("Fetched TOT content length:", oldContentResult.length);
           return oldContentResult;
