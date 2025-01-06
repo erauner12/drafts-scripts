@@ -83,26 +83,16 @@ export async function runTOTIntegration(): Promise<void> {
         const scriptMac = `
           on execute(docList)
             (*
-              docList should be a list containing exactly one text item, e.g., {"7"}.
-              We'll get item 1 and coerce it to a number.
+              docList is a list with one text item, e.g. {"6"}.
+              We just build a tot:///content URL and open it.
             *)
             if (count of docList) is 0 then
               return ""
             end if
-
             set docID to item 1 of docList
-            set docNum to docID as number
 
             tell application "Tot"
-              set totalDocs to (count of documents)
-              log "TOT Document Count: " & totalDocs
-              log "Requested docNum: " & docNum
-
-              if docNum > totalDocs or docNum < 1 then
-                return ""
-              end if
-
-              return content of document docNum
+              open location "tot://" & docID & "/content"
             end tell
           end execute
         `;
